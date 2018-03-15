@@ -1,7 +1,13 @@
 # libCrypto
 Cryptopro lib for Node.js
 
-## Ubuntu
+## Установка и настройка пакета
+
+Установить КриптоПро CSP: https://cryptopro.ru/downloads
+
+На данный момент используется версия КриптоПро CSP 4.0 R2.
+
+### Ubuntu
 
 1) Создание контейнера и генерация пары закрытого/открытого ключа в хранилище:
 
@@ -24,15 +30,25 @@ http://www.cryptopro.ru/certsrv/
 
 npm install
 
-### Компиляция .so библиотеки
+### Windows
+
+npm install --global --production windows-build-tools
+
+npm install
+
+## Компиляция .so/.dll библиотеки
+
+Установить КриптоПро ЭЦП SDK: https://cryptopro.ru/downloads
+
+В данный момент используется версия КриптоПро ЭЦП SDK 2.0 
+
+### Ubuntu
 
 eval \`./setenv.sh --64\`
 
 make -f MakeNodeCryptopro
 
-## Windows
-
-### Компиляция .dll
+### Windows
 
 set PATH=%PATH%C:\Program Files (x86)\Crypto Pro\SDK\include
 

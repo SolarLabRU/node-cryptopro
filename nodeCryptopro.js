@@ -1,4 +1,6 @@
 'use strict';
+const Path = require('path');
+const pathToNodeCryptopro = Path.resolve(__dirname, '.');
 
 const ffi = require('ffi');
 const ref = require('ref');
@@ -24,7 +26,7 @@ var CallResult = Struct({
 	'errorMessage': 'string'
 });
 
-const cryptoLib = ffi.Library('./nodeCryptopro', {
+const cryptoLib = ffi.Library(pathToNodeCryptopro + '/nodeCryptopro', {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Decrypt': [CallResult, ['string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],

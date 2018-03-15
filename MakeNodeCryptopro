@@ -1,0 +1,15 @@
+.SUFFIXES: .cpp
+
+out=nodeCryptopro
+
+#CPCCC=$(CCC)
+CPCCC=$(CXX)
+# For FreeBSD you should add -pthread to LDFLAGS.
+CFLAGS=-DUNIX -DHAVE_LIMITS_H $(ARCH_FLAGS) $(add_CPPFLAGS) -I$(CSP_INCLUDE) -I$(CSP_INCLUDE)/cpcsp -I$(CSP_INCLUDE)/asn1c/rtsrc -I$(CSP_INCLUDE)/asn1data -DSIZEOF_VOID_P=$(SIZEOF_VOID_P) -fpic
+LDFLAGS= $(ARCH_FLAGS) -L$(CSP_LIB) -lssp -lcapi10 -lcapi20 -lrdrsup $(CSP_EXTRA_LIBS) $(add_ldflags)
+
+OBJS=$(out).o
+$(out): $(OBJS)
+	$(CPCCC) $(OBJS) $(LDFLAGS) -shared -o $@.so $(add_libs)
+.cpp.o:
+	$(CPCCC) $(CFLAGS) -c -fpic -o $@ $<

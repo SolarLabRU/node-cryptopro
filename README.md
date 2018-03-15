@@ -1,11 +1,23 @@
-# libCrypto
-Cryptopro lib for Node.js
+# nodeCryptopro
+Node.js package to use Cryptopro.ru functionality
 
 ## Установка и настройка пакета
 
 Установить КриптоПро CSP: https://cryptopro.ru/downloads
 
 На данный момент используется версия КриптоПро CSP 4.0 R2.
+
+### Ubuntu
+
+npm install node-cryptopro
+
+### Windows
+
+npm install --global --production windows-build-tools
+
+npm install node-cryptopro
+
+## Использование
 
 ### Ubuntu
 
@@ -26,15 +38,6 @@ http://www.cryptopro.ru/certsrv/
 5) Установить сертификат:
 
 /opt/cprocsp/bin/amd64/certmgr -inst -store umy -file containerName.cer -cont '\\.\HDIMAGE\containerName'
-
-
-npm install
-
-### Windows
-
-npm install --global --production windows-build-tools
-
-npm install
 
 ## Компиляция .so/.dll библиотеки
 

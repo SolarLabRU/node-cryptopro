@@ -24,7 +24,7 @@ var CallResult = Struct({
 	'errorMessage': 'string'
 });
 
-const cryptoLib = ffi.Library('./nodeCryptopro.so', {
+const cryptoLib = ffi.Library('./nodeCryptopro', {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Decrypt': [CallResult, ['string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],

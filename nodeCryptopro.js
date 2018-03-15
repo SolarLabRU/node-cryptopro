@@ -1,6 +1,15 @@
 'use strict';
 const Path = require('path');
+
 const pathToNodeCryptopro = Path.resolve(__dirname, '.');
+
+let pathToNodeCryptoproLib = '';
+
+if(process.platform == 'win32') {
+	pathToNodeCryptoproLib = pathToNodeCryptopro + '/nodeCryptopro.dll';
+} else {
+	pathToNodeCryptoproLib = pathToNodeCryptopro + '/nodeCryptopro.so';
+}
 
 const ffi = require('ffi');
 const ref = require('ref');
@@ -26,7 +35,7 @@ var CallResult = Struct({
 	'errorMessage': 'string'
 });
 
-const cryptoLib = ffi.Library(pathToNodeCryptopro + '/nodeCryptopro', {
+const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Decrypt': [CallResult, ['string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],

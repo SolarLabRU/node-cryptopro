@@ -4,11 +4,18 @@ const expect = require('chai').expect;
 
 const nodeCryptopro = require('../index');
 
+//Имя контейнера с ключами отправителя
 const senderContainerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+
+//Путь к файлу с сертификатом открытого ключа отправителя
 const senderCertFilename = "2012_Cert.cer";
 
+//Имя контейнера с ключами получателя
 const responderContainerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+
+//Путь к файлу с сертификатом открытого ключа получателя
 const responderCertFilename =  "2012_Cert.cer";
+
 
 describe('Тесты', function () {
 

@@ -3,6 +3,9 @@
   "version": "0.1.5",
   "description": "Node.js package to use Cryptopro.ru functionality",
   "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -14,5 +17,9 @@
     "ref-array": "^1.2.0",
     "ref-struct": "^1.1.0",
     "repl": "^0.1.3"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^5.0.4"
   }
 }

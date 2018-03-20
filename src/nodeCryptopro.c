@@ -72,7 +72,7 @@ EXPORT CallResult SignHash(
 EXPORT CallResult VerifySignature(
     BYTE* messageBytesArray, DWORD messageBytesArrayLength, 
     BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
-    const char* certFilename,
+    BYTE* publicKeyBlob, int publicKeyBlobLength,
     BOOL *verificationResultToReturn
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
@@ -80,18 +80,12 @@ EXPORT CallResult VerifySignature(
     HCRYPTKEY hPubKey = 0;
 
     BOOL verificationResult = FALSE;
-    BYTE  *pbKeyBlob = (BYTE *)malloc(MAX_PUBLICKEYBLOB_SIZE);
-    DWORD pbKeyBlobLength = MAX_PUBLICKEYBLOB_SIZE;
 
     if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
         return HandleError("CryptAcquireContext failed");
 
-    CallResult pbLoadResult = LoadPublicKey(hProv, pbKeyBlob, &pbKeyBlobLength, certFilename, certFilename);
-    if(pbLoadResult.status)
-        return pbLoadResult;
-
     // Получение откытого ключа отправителя и импортирование его в CSP. Дескриптор открытого ключа возвращается в hPubKey
-    if(!CryptImportKey(hProv, pbKeyBlob, pbKeyBlobLength, 0, 0, &hPubKey))
+    if(!CryptImportKey(hProv, publicKeyBlob, publicKeyBlobLength, 0, 0, &hPubKey))
         return HandleError("Public key import failed");
 
     // Создание объекта функции хеширования
@@ -110,7 +104,6 @@ EXPORT CallResult VerifySignature(
 
     memcpy(verificationResultToReturn, &verificationResult, sizeof(verificationResult));
 
-    free(pbKeyBlob);
     if(hHash) 
         CryptDestroyHash(hHash);
     if(hProv) 
@@ -122,7 +115,7 @@ EXPORT CallResult VerifySignature(
 EXPORT CallResult Encrypt(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 
-    const char* responderCertFilename, 
+    BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
@@ -139,9 +132,6 @@ EXPORT CallResult Encrypt(
     BYTE *pbIV = NULL;      // Вектор инициализации сессионного ключа
     DWORD dwIV = 0;
 
-    BYTE  pbResponderKeyBlob[MAX_PUBLICKEYBLOB_SIZE];
-    DWORD dwResponderKeyBlobLen = MAX_PUBLICKEYBLOB_SIZE;
-
     DWORD bufLen = 0;
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
@@ -149,16 +139,12 @@ EXPORT CallResult Encrypt(
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
        return HandleError("Error during CryptAcquireContext");
 
-    CallResult pkLoadResult = LoadPublicKey(hProv, pbResponderKeyBlob, &dwResponderKeyBlobLen, responderCertFilename, responderCertFilename);
-    if(pkLoadResult.status)
-        return pkLoadResult;
-
     // Получение дескриптора закрытого ключа отправителя
     if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
 
     // Получение ключа согласования импортом открытого ключа получателя на закрытом ключе отправителя
-    if(!CryptImportKey(hProv, pbResponderKeyBlob, dwResponderKeyBlobLen, hKey, 0, &hAgreeKey))
+    if(!CryptImportKey(hProv, responderPublicKeyBlob, responderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
        return HandleError("Error during CryptImportKey public key");
 
     // Установление алгоритма ключа согласования
@@ -223,10 +209,11 @@ EXPORT CallResult Encrypt(
 }
 
 EXPORT CallResult Decrypt(
-    const char* responderContainerName, 
-    const char* senderCertFilename, 
-    BYTE* encryptedText, int encryptedTextLength, 
-    BYTE* IV, int IVLength, 
+    const char* responderContainerName,
+    BYTE* senderPublicKeyBlob,
+    int senderPublicKeyBlobLength,
+    BYTE* encryptedText, int encryptedTextLength,
+    BYTE* IV, int IVLength,
     BYTE* keySimpleBlob, int keySimpleBlobLength
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
@@ -234,11 +221,6 @@ EXPORT CallResult Decrypt(
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
 
-    BYTE  pbKeyBlob[MAX_PUBLICKEYBLOB_SIZE];
-    DWORD dwBlobLen = MAX_PUBLICKEYBLOB_SIZE;
-
-    DWORD cbContent = 0;
-    
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
    // Получение дескриптора контейнера получателя с именем "responderContainerName", находящегося в рамках провайдера
@@ -246,14 +228,10 @@ EXPORT CallResult Decrypt(
        return HandleError("Error during CryptAcquireContext");
     }
 
-    CallResult pkLoadResult = LoadPublicKey(hProv, pbKeyBlob, &dwBlobLen, senderCertFilename, senderCertFilename);
-    if(pkLoadResult.status)
-        return pkLoadResult;
-
     if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
 
-    if(!CryptImportKey(hProv, pbKeyBlob, dwBlobLen, hKey, 0, &hAgreeKey))
+    if(!CryptImportKey(hProv, senderPublicKeyBlob, senderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
         return HandleError("Error during CryptImportKey public key");
 
     if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
@@ -318,15 +296,22 @@ EXPORT CallResult CreateHash(BYTE* bytesArrayToHash, DWORD bytesArrayToHashLengt
     return ResultSuccess();
 }
 
-CallResult LoadPublicKey(HCRYPTPROV hProv, BYTE *pbBlob, DWORD *pcbBlob, const char *szCertFile, const char *szKeyFile) {
+CallResult LoadPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName) {
     FILE *certf = NULL;       // Файл, в котором хранится сертификат
     FILE *publicf = NULL;     // Файл, в котором хранится открытый ключ
 
-    if((certf = fopen(szCertFile, "rb"))) {
+    if((certf = fopen(certificateFileName, "rb"))) {
         DWORD cbCert = 2000;
         BYTE  pbCert[2000];
         PCCERT_CONTEXT pCertContext = NULL;
         HCRYPTKEY hPubKey;
+        HCRYPTPROV hProv = 0; // Дескриптор CSP
+
+        BYTE  pbKeyBlob[MAX_PUBLICKEYBLOB_SIZE];
+        DWORD dwKeyBlobLen = MAX_PUBLICKEYBLOB_SIZE;
+
+        if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
+            return HandleError("CryptAcquireContext failed");
 
         cbCert = (DWORD)fread(pbCert, 1, cbCert, certf);
         if(!cbCert)
@@ -344,27 +329,24 @@ CallResult LoadPublicKey(HCRYPTPROV hProv, BYTE *pbBlob, DWORD *pcbBlob, const c
         }
         
         // Экспортируем его в BLOB
-        if (!CryptExportKey(hPubKey, 0, PUBLICKEYBLOB, 0, pbBlob, pcbBlob)) {
+        if (!CryptExportKey(hPubKey, 0, PUBLICKEYBLOB, 0, pbKeyBlob, &dwKeyBlobLen)) {
             CryptDestroyKey(hPubKey);
             return HandleError( "CryptExportKey" );
         }
+
+        memcpy(publicKeyBlob, pbKeyBlob, dwKeyBlobLen);
+        memcpy(publicKeyBlobLength, &dwKeyBlobLen, sizeof(dwKeyBlobLen));
 
         CertFreeCertificateContext(pCertContext);
         CryptDestroyKey(hPubKey);
         fclose(certf);
     } else {
-        if(!(publicf = fopen(szKeyFile, "rb")))
-            return HandleError( "Problem opening the public key blob file" );
-
-        *pcbBlob = (DWORD)fread(pbBlob, 1, *pcbBlob, publicf);
-        if(!*pcbBlob)
-            return HandleError( "Failed to read key blob file" );
-
-        fclose (publicf);
+        return HandleError( "Problem opening certificate file" );
     }
 
     return ResultSuccess();
 }
+
 
 CallResult HandleError(const char *errorMessage) {
     DWORD errorCode = GetLastError();

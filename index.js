@@ -37,10 +37,11 @@ var CallResult = Struct({
 
 const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'Decrypt': [CallResult, ['string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
+	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
+	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', 'string', ref.refType('bool')]]
+	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
+	'LoadPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']]
 });
 
 
@@ -88,11 +89,11 @@ module.exports = {
 	 *
 	 * @param {Uint8Array} bytesArrayToEncrypt Исходные данные для шифрования
 	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
-	 * @param {String} responderCertFilename Путь к файлу сертификата открытого ключа получателя
+	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
 	 *
 	 * @return {EncryptionResult}  
 	 */
-    encrypt: (bytesArrayToEncrypt, senderContainerName, responderCertFilename) => {
+    encrypt: (bytesArrayToEncrypt, senderContainerName, responderPublicKey) => {
 		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
 		let IVLength = ref.alloc('int');
 
@@ -102,8 +103,8 @@ module.exports = {
 		let result = cryptoLib.Encrypt(
 			sessionKeyBlobLength, 
 			sessionKeyBlob, 
-			senderContainerName, 
-			responderCertFilename, 
+			senderContainerName,
+			responderPublicKey, responderPublicKey.length,
 			bytesArrayToEncrypt, bytesArrayToEncrypt.length, 
 			IV, IVLength
 		);
@@ -125,16 +126,16 @@ module.exports = {
 	 *
 	 * @param {Uint8Array} encryptedBytes Массив байтов зашифрованных данных
 	 * @param {String} responderContainerName Имя контейнера, содержащего закрытый ключ получателя
-	 * @param {String} senderCertFilename Путь к файлу сертификата открытого ключа отправителя
+	 * @param {Uint8Array} senderPublicKey Публичный ключ отправителя (PUBLICKEYBLOB)
 	 * @param {Uint8Array} IV Вектор инициализации сессионного ключа
 	 * @param {Uint8Array} keyBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
 	 *
 	 * @return {Uint8Array} Массив байтов расшифрованного сообщения
 	 */
-    decrypt: (encryptedBytes, responderContainerName, senderCertFilename, IV, keyBlob) => {
+    decrypt: (encryptedBytes, responderContainerName, senderPublicKey, IV, keyBlob) => {
 		let result = cryptoLib.Decrypt(
 			responderContainerName,
-			senderCertFilename,
+			senderPublicKey, senderPublicKey.length,
 			encryptedBytes, 
 			encryptedBytes.length,
 			IV, 
@@ -170,25 +171,42 @@ module.exports = {
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {	
-    		return signatureBytesArray.subarray(0, signatureBytesArrayLength.deref());
-    	}
+			return signatureBytesArray.subarray(0, signatureBytesArrayLength.deref());
+		}
     },
 	/**
 	 * Верификация цифровой подписи хеша сообщения
 	 *
 	 * @param {Uint8Array} messageBytesArray Массив байтов исходного сообщения
 	 * @param {Uint8Array} signatureBytesArray Массив байтов исходного сообщения
-	 * @param {String} certFilename Путь к файлу сертификата открытого ключа
+	 * @param {Uint8Array} publicKey Открытый ключ
 	 * @return {Boolean} Результат верификации
 	 */
-    verifySignature: (messageBytesArray, signatureBytesArray, certFilename) => {
+    verifySignature: (messageBytesArray, signatureBytesArray, publicKey) => {
     	let verificationResult = ref.alloc('bool');
-    	let result = cryptoLib.VerifySignature(messageBytesArray, messageBytesArray.length, signatureBytesArray, signatureBytesArray.length, certFilename, verificationResult);
+    	let result = cryptoLib.VerifySignature(
+    		messageBytesArray, messageBytesArray.length, 
+    		signatureBytesArray, signatureBytesArray.length, 
+    		publicKey, publicKey.length,
+    		verificationResult
+    	);
 		
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {	
 	    	return verificationResult.deref();
 	    }
-    }
+    },
+	LoadPublicKeyFromCertificate: (certificateFilePath) => {
+		let publicKeyBlobLength = ref.alloc('int');
+		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
+
+		let result = cryptoLib.LoadPublicKeyFromCertificate(publicKeyBlob, publicKeyBlobLength, certificateFilePath);
+
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {	
+			return publicKeyBlob.subarray(0, publicKeyBlobLength.deref());
+		}
+	}
 };

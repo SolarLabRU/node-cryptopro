@@ -27,6 +27,7 @@ describe('Тесты', function () {
 
 	let hashSignatureForSourceMessage = "";
 
+	let publicKeyBlob = {};
 	let encryptionResult = {};
 
 	it('Вычисление хеша', async () => {
@@ -35,6 +36,15 @@ describe('Тесты', function () {
 		expect(hash).to.deep.equal(hashForSourceMessage);
 	});
 
+	it('Загрузка публичного ключа из файла сертификата', async () => {
+		const certificateFilePath = '2012_Cert.cer';
+
+		publicKeyBlob = nodeCryptopro.LoadPublicKeyFromCertificate(certificateFilePath);
+
+		console.log(publicKeyBlob.length);
+		expect(publicKeyBlob).to.deep.equal(publicKeyBlob);
+	});	
+
 	it('Вычисление цифровой подписи хеша', async () => {
 		hashSignatureForSourceMessage = nodeCryptopro.signHash(senderContainerName, sourceMessageBytes);
 
@@ -42,13 +52,13 @@ describe('Тесты', function () {
 	});
 
 	it('Проверка цифровой подписи хеша', async () => {
-		const isVerified = nodeCryptopro.verifySignature(sourceMessageBytes, hashSignatureForSourceMessage, senderCertFilename);
+		const isVerified = nodeCryptopro.verifySignature(sourceMessageBytes, hashSignatureForSourceMessage, publicKeyBlob);
 
 		expect(isVerified).to.equal(true);
 	});
 
 	it('Шифрование сообщения по алгоритму ГОСТ 28147', async () => {
-		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, responderCertFilename);
+		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, publicKeyBlob);
 
 		expect(encryptionResult.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 		expect(encryptionResult.sessionKeyBlob).to.have.lengthOf(73);
@@ -56,10 +66,12 @@ describe('Тесты', function () {
 	});
 
 	it('Дешифрование сообщения по алгоритму ГОСТ 28147', async () => {
+		const senderPublicKeyBlob = publicKeyBlob;
+
 		let decryptedBytes = nodeCryptopro.decrypt(
 			encryptionResult.encryptedBytesArray, 
 			responderContainerName,
-			senderCertFilename,
+			senderPublicKeyBlob,
 			encryptionResult.IV,
 			encryptionResult.sessionKeyBlob);
 

@@ -25,6 +25,7 @@ CallResult ResultSuccess() {
 CallResult HandleError(const char *s);
 
 CallResult LoadPublicKey(HCRYPTPROV hProv, BYTE *pbBlob, DWORD *pcbBlob, const char *szCertFile, const char *szKeyFile);
+CallResult LoadPublicKeyFromCertificate(BYTE *pbBlob, DWORD *pcbBlob, const char *szCertFile);
 
 EXPORT CallResult SignHash(
     const char* keyContainer, 
@@ -37,14 +38,15 @@ EXPORT CallResult SignHash(
 EXPORT CallResult VerifySignature(
     BYTE* messageBytesArray, DWORD messageBytesArrayLength, 
     BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
-    const char* certFilename,
+    BYTE* publicKeyBlob, int publicKeyBlobLength,
     BOOL *verificationResultToReturn
 );
 
 EXPORT CallResult Encrypt(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 
-    const char* responderCertFilename, 
+    BYTE* responderPublicKeyBlob,
+    int responderPublicKeyBlobLength,
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
@@ -52,10 +54,11 @@ EXPORT CallResult Encrypt(
 );
 
 EXPORT CallResult Decrypt(
-    const char* responderContainerName, 
-    const char* senderCertFilename, 
-    BYTE* encryptedText, int encryptedTextLength, 
-    BYTE* IV, int IVLength, 
+    const char* responderContainerName,
+    BYTE* senderPublicKeyBlob,
+    int senderPublicKeyBlobLength,
+    BYTE* encryptedText, int encryptedTextLength,
+    BYTE* IV, int IVLength,
     BYTE* keySimpleBlob, int keySimpleBlobLength
 );
 

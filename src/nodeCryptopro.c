@@ -374,9 +374,12 @@ CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlob
     //--------------------------------------------------------------------
     // Получение дескриптора CSP, включая доступ к связанному с ним ключевому
     // контейнеру для контекста сертификата pCertContext
-    if(!CryptAcquireCertificatePrivateKey(pCertContext, 0, NULL, &hProv, &dwKeySpecSender, NULL)) {
-        return HandleError("Error during CryptAcquireCertificatePrivateKey");
-    }
+//    if(!CryptAcquireCertificatePrivateKey(pCertContext, 0, NULL, &hProv, &dwKeySpecSender, NULL)) {
+//        return HandleError("Error during CryptAcquireCertificatePrivateKey");
+//    }
+
+    if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
+        return HandleError("CryptAcquireContext failed");
 
     //--------------------------------------------------------------------
     // Получение дескриптора открытого ключа

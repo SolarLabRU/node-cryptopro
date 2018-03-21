@@ -41,7 +41,8 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
-	'LoadPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']]
+	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
+	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']]
 });
 
 
@@ -93,7 +94,7 @@ module.exports = {
 	 *
 	 * @return {EncryptionResult}  
 	 */
-    encrypt: (bytesArrayToEncrypt, senderContainerName, responderPublicKey) => {
+	encrypt: (bytesArrayToEncrypt, senderContainerName, responderPublicKey) => {
 		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
 		let IVLength = ref.alloc('int');
 
@@ -117,7 +118,7 @@ module.exports = {
 				IV: IV.subarray(0, IVLength.deref())
 			};
 		}
-    },
+	},
 	/**
 	 * Дешифрование по алгоритму ГОСТ 28147
 	 *
@@ -132,7 +133,7 @@ module.exports = {
 	 *
 	 * @return {Uint8Array} Массив байтов расшифрованного сообщения
 	 */
-    decrypt: (encryptedBytes, responderContainerName, senderPublicKey, IV, keyBlob) => {
+	decrypt: (encryptedBytes, responderContainerName, senderPublicKey, IV, keyBlob) => {
 		let result = cryptoLib.Decrypt(
 			responderContainerName,
 			senderPublicKey, senderPublicKey.length,
@@ -149,7 +150,7 @@ module.exports = {
 		} else {	
 			return encryptedBytes;
 		}
-    },
+	},
 	/**
 	 * Вычисление хеша сообщения по ГОСТ 34.11-2012 и генерация цифровой подписи
 	 *
@@ -161,19 +162,19 @@ module.exports = {
 		let signatureBytesArrayLength = ref.alloc('int');
 		let signatureBytesArray = new Uint8Array( MAX_SIGNATURE_LENGTH );
 
-    	let result = cryptoLib.SignHash(
-    		keyContainerName, 
-    		messageBytesArray, 
-    		messageBytesArray.length, 
-    		signatureBytesArray, 
-    		signatureBytesArrayLength
-    	);
+		let result = cryptoLib.SignHash(
+			keyContainerName, 
+			messageBytesArray, 
+			messageBytesArray.length, 
+			signatureBytesArray, 
+			signatureBytesArrayLength
+		);
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {	
 			return signatureBytesArray.subarray(0, signatureBytesArrayLength.deref());
 		}
-    },
+	},
 	/**
 	 * Верификация цифровой подписи хеша сообщения
 	 *
@@ -182,26 +183,38 @@ module.exports = {
 	 * @param {Uint8Array} publicKey Открытый ключ
 	 * @return {Boolean} Результат верификации
 	 */
-    verifySignature: (messageBytesArray, signatureBytesArray, publicKey) => {
-    	let verificationResult = ref.alloc('bool');
-    	let result = cryptoLib.VerifySignature(
-    		messageBytesArray, messageBytesArray.length, 
-    		signatureBytesArray, signatureBytesArray.length, 
-    		publicKey, publicKey.length,
-    		verificationResult
-    	);
+	verifySignature: (messageBytesArray, signatureBytesArray, publicKey) => {
+		let verificationResult = ref.alloc('bool');
+		let result = cryptoLib.VerifySignature(
+			messageBytesArray, messageBytesArray.length, 
+			signatureBytesArray, signatureBytesArray.length, 
+			publicKey, publicKey.length,
+			verificationResult
+		);
 		
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {	
-	    	return verificationResult.deref();
-	    }
-    },
-	LoadPublicKeyFromCertificate: (certificateFilePath) => {
+			return verificationResult.deref();
+		}
+	},
+	GetPublicKeyFromCertificateFile: (certificateFilePath) => {
 		let publicKeyBlobLength = ref.alloc('int');
 		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
 
-		let result = cryptoLib.LoadPublicKeyFromCertificate(publicKeyBlob, publicKeyBlobLength, certificateFilePath);
+		let result = cryptoLib.GetPublicKeyFromCertificateFile(publicKeyBlob, publicKeyBlobLength, certificateFilePath);
+
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {	
+			return publicKeyBlob.subarray(0, publicKeyBlobLength.deref());
+		}
+	},
+	GetPublicKeyFromCertificate: (certificateSubjectKey) => {
+		let publicKeyBlobLength = ref.alloc('int');
+		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
+
+		let result = cryptoLib.GetPublicKeyFromCertificate(publicKeyBlob, publicKeyBlobLength, certificateSubjectKey);
 
 		if(result.status) {
 			throw new Error(result.errorMessage);

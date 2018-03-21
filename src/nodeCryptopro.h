@@ -24,8 +24,9 @@ CallResult ResultSuccess() {
 
 CallResult HandleError(const char *s);
 
-CallResult LoadPublicKey(HCRYPTPROV hProv, BYTE *pbBlob, DWORD *pcbBlob, const char *szCertFile, const char *szKeyFile);
-CallResult LoadPublicKeyFromCertificate(BYTE *pbBlob, DWORD *pcbBlob, const char *szCertFile);
+EXPORT CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName);
+
+EXPORT CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateSubjectKey);
 
 EXPORT CallResult SignHash(
     const char* keyContainer, 

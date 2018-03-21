@@ -25,6 +25,8 @@ describe('Тесты', function () {
 	const sourceMessageBytes = new Uint8Array(buffer);
 	const hashForSourceMessage = new Uint8Array([82,181,47,23,1,228,41,72,41,214,88,194,195,191,190,222,223,73,66,111,196,65,133,235,206,122,89,171,160,130,48,90]);
 
+	const certificateSubjectKey = 'NewCert2012';
+
 	let hashSignatureForSourceMessage = "";
 
 	let publicKeyBlob = {};
@@ -36,13 +38,18 @@ describe('Тесты', function () {
 		expect(hash).to.deep.equal(hashForSourceMessage);
 	});
 
+	it('Загрузка публичного ключа из контейнера', async () => {
+		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificate(certificateSubjectKey);
+
+		expect(publicKeyBlob).to.have.lengthOf(101);
+	});	
+
 	it('Загрузка публичного ключа из файла сертификата', async () => {
 		const certificateFilePath = '2012_Cert.cer';
 
-		publicKeyBlob = nodeCryptopro.LoadPublicKeyFromCertificate(certificateFilePath);
+		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(certificateFilePath);
 
-		console.log(publicKeyBlob.length);
-		expect(publicKeyBlob).to.deep.equal(publicKeyBlob);
+		expect(publicKeyBlob).to.have.lengthOf(101);
 	});	
 
 	it('Вычисление цифровой подписи хеша', async () => {

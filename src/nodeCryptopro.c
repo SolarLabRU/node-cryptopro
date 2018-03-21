@@ -296,15 +296,14 @@ EXPORT CallResult CreateHash(BYTE* bytesArrayToHash, DWORD bytesArrayToHashLengt
     return ResultSuccess();
 }
 
-CallResult LoadPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName) {
+CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName) {
     FILE *certf = NULL;       // Файл, в котором хранится сертификат
-    FILE *publicf = NULL;     // Файл, в котором хранится открытый ключ
 
     if((certf = fopen(certificateFileName, "rb"))) {
         DWORD cbCert = 2000;
         BYTE  pbCert[2000];
         PCCERT_CONTEXT pCertContext = NULL;
-        HCRYPTKEY hPubKey;
+        HCRYPTKEY hPublicKey;
         HCRYPTPROV hProv = 0; // Дескриптор CSP
 
         BYTE  pbKeyBlob[MAX_PUBLICKEYBLOB_SIZE];
@@ -323,14 +322,14 @@ CallResult LoadPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlo
             return HandleError( "CertCreateCertificateContext" );
 
         // Импортируем открытый ключ
-        if (!CryptImportPublicKeyInfoEx(hProv, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, &(pCertContext->pCertInfo->SubjectPublicKeyInfo), 0, 0, NULL, &hPubKey)) {
+        if (!CryptImportPublicKeyInfoEx(hProv, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, &(pCertContext->pCertInfo->SubjectPublicKeyInfo), 0, 0, NULL, &hPublicKey)) {
             CertFreeCertificateContext(pCertContext);
             return HandleError( "CryptImportPublicKeyInfoEx" );
         }
         
         // Экспортируем его в BLOB
-        if (!CryptExportKey(hPubKey, 0, PUBLICKEYBLOB, 0, pbKeyBlob, &dwKeyBlobLen)) {
-            CryptDestroyKey(hPubKey);
+        if (!CryptExportKey(hPublicKey, 0, PUBLICKEYBLOB, 0, pbKeyBlob, &dwKeyBlobLen)) {
+            CryptDestroyKey(hPublicKey);
             return HandleError( "CryptExportKey" );
         }
 
@@ -338,7 +337,8 @@ CallResult LoadPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlo
         memcpy(publicKeyBlobLength, &dwKeyBlobLen, sizeof(dwKeyBlobLen));
 
         CertFreeCertificateContext(pCertContext);
-        CryptDestroyKey(hPubKey);
+        CryptDestroyKey(hPublicKey);
+        CryptReleaseContext(hProv, 0);
         fclose(certf);
     } else {
         return HandleError( "Problem opening certificate file" );
@@ -347,6 +347,73 @@ CallResult LoadPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlo
     return ResultSuccess();
 }
 
+CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateSubjectKey) {
+    PCCERT_CONTEXT pCertContext = NULL;    // Контекст сертификата
+    HCERTSTORE hStoreHandle = 0;     // Дескриптор хранилища сертификатов
+    HCRYPTKEY hPublicKey = 0;     // Дескриптор открытого ключа
+    HCRYPTPROV hProv = 0;         // Дескриптор CSP
+    
+    BYTE *pbKeyBlob = NULL;    // Указатель на ключевой BLOB
+    DWORD dwKeyBlobLen;       // Длина ключевого BLOBа получателя
+    
+    DWORD dwKeySpecSender;
+
+    // Открытие системного хранилища сертификатов.
+    hStoreHandle = CertOpenSystemStore(0, "MY");
+    
+    if(!hStoreHandle) {
+        return HandleError( "Error getting store handle");
+    }
+
+    pCertContext = CertFindCertificateInStore(hStoreHandle, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR, certificateSubjectKey, NULL);
+
+    if(!pCertContext) {
+        return HandleError("Error finding certificate");
+    }
+
+    //--------------------------------------------------------------------
+    // Получение дескриптора CSP, включая доступ к связанному с ним ключевому
+    // контейнеру для контекста сертификата pCertContext
+    if(!CryptAcquireCertificatePrivateKey(pCertContext, 0, NULL, &hProv, &dwKeySpecSender, NULL)) {
+        return HandleError("Error during CryptAcquireCertificatePrivateKey");
+    }
+
+    //--------------------------------------------------------------------
+    // Получение дескриптора открытого ключа
+    if(!CryptImportPublicKeyInfoEx(hProv, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, &(pCertContext->pCertInfo->SubjectPublicKeyInfo), 0, 0, NULL, &hPublicKey)) {
+        return HandleError("Error during CryptImportPublicKeyInfoEx public key");
+    }
+
+    //--------------------------------------------------------------------
+    // Определение размера BLOBа открытого ключа и распределение памяти.
+    if(!CryptExportKey(hPublicKey, 0, PUBLICKEYBLOB, 0, NULL, &dwKeyBlobLen)) {
+        return HandleError("Error computing BLOB length");
+    }
+
+    pbKeyBlob = (BYTE*)malloc(dwKeyBlobLen);
+
+    if(!pbKeyBlob) {
+        return HandleError("Out of memory");
+    }
+
+    //--------------------------------------------------------------------
+    // Экспортирование открытого ключа получателя в BLOB открытого ключа.
+    if(!CryptExportKey(hPublicKey, 0, PUBLICKEYBLOB, 0, pbKeyBlob, &dwKeyBlobLen)) {
+        return HandleError("Error during CryptExportKey");
+    }
+
+    memcpy(publicKeyBlob, pbKeyBlob, dwKeyBlobLen);
+    memcpy(publicKeyBlobLength, &dwKeyBlobLen, sizeof(dwKeyBlobLen));
+
+
+    free(pbKeyBlob);
+    CertFreeCertificateContext(pCertContext);
+    CryptDestroyKey(hPublicKey);
+    CryptReleaseContext(hProv, 0);
+    CertCloseStore(hStoreHandle, 0);
+
+    return ResultSuccess();
+}
 
 CallResult HandleError(const char *errorMessage) {
     DWORD errorCode = GetLastError();

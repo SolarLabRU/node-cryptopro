@@ -41,17 +41,27 @@ http://www.cryptopro.ru/certsrv/
 
 ## Компиляция .so/.dll библиотеки
 
-Установить КриптоПро ЭЦП SDK: https://cryptopro.ru/downloads
-
-В данный момент используется версия КриптоПро ЭЦП SDK 2.0 
-
 ### Ubuntu
 
+1) Установить lsb-cprocsp-devel из дистрибутива КриптоПро CSP или КриптоПро OCSP SDK (https://www.cryptopro.ru/products/pki/ocsp/sdk/downloads), например так:
+
+cd linux-amd64_deb
+
+sudo dpkg -i lsb-cprocsp-devel_4.0.0-4_all.deb
+
+2) Установить переменные окружения:
+
 eval \`./setenv.sh --64\`
+
+3) Скомпилировать:
 
 make -f MakeNodeCryptopro
 
 ### Windows
+
+1) Установить КриптоПро OCSP SDK (https://www.cryptopro.ru/products/pki/ocsp/sdk/downloads).
+
+2) Установить переменные окружения:
 
 set PATH=%PATH%C:\Program Files (x86)\Crypto Pro\SDK\include
 
@@ -60,5 +70,7 @@ set INCLUDE=%INCLUDE%C:\Program Files (x86)\Crypto Pro\SDK\include
 set LIBPATH=%LIBPATH%C:\Program Files (x86)\Crypto Pro\SDK\lib\amd64
 
 set LIBPATH=%LIBPATH%C:\Program Files (x86)\Crypto Pro\SDK\lib
+
+3) Скомпилировать:
 
 cl.exe /D_USRDLL /D_WINDLL nodeCryptopro.c /link /DLL /OUT:nodeCryptopro.dll

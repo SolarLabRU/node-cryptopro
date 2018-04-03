@@ -41,6 +41,8 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
+	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
+	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']]
 });
@@ -179,7 +181,7 @@ module.exports = {
 	 * Верификация цифровой подписи хеша сообщения
 	 *
 	 * @param {Uint8Array} messageBytesArray Массив байтов исходного сообщения
-	 * @param {Uint8Array} signatureBytesArray Массив байтов исходного сообщения
+	 * @param {Uint8Array} signatureBytesArray Массив байтов подписи хеша исходного сообщения
 	 * @param {Uint8Array} publicKey Открытый ключ
 	 * @return {Boolean} Результат верификации
 	 */
@@ -198,6 +200,54 @@ module.exports = {
 			return verificationResult.deref();
 		}
 	},
+	/**
+	 * Вычисление генерация цифровой подписи для готового хеша сообщения
+	 *
+	 * @param {String} keyContainerName Имя контейнера, содержащего закрытый ключ
+	 * @param {Uint8Array} hashBytesArray Массив байтов предварительно полученного хеша
+	 * @return {Uint8Array} Массив байтов цифровой подписи
+	 */
+	signPreparedHash: (keyContainerName, hashBytesArray) => {
+		let signatureBytesArrayLength = ref.alloc('int');
+		let signatureBytesArray = new Uint8Array( MAX_SIGNATURE_LENGTH );
+
+		let result = cryptoLib.SignHash(
+			keyContainerName, 
+			hashBytesArray, 
+			hashBytesArray.length, 
+			signatureBytesArray, 
+			signatureBytesArrayLength
+		);
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {	
+			return signatureBytesArray.subarray(0, signatureBytesArrayLength.deref());
+		}
+	},
+	/**
+	 * Верификация цифровой подписи хеша сообщения
+	 *
+	 * @param {Uint8Array} hashBytesArray Массив байтов хеша исходного сообщения
+	 * @param {Uint8Array} signatureBytesArray Массив байтов подписи хеша
+	 * @param {Uint8Array} publicKey Открытый ключ
+	 * @return {Boolean} Результат верификации
+	 */
+	verifyPreparedHashSignature: (hashBytesArray, signatureBytesArray, publicKey) => {
+		let verificationResult = ref.alloc('bool');
+		let result = cryptoLib.VerifySignature(
+			hashBytesArray, hashBytesArray.length, 
+			signatureBytesArray, signatureBytesArray.length, 
+			publicKey, publicKey.length,
+			verificationResult
+		);
+		
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {	
+			return verificationResult.deref();
+		}
+	},
+
 	GetPublicKeyFromCertificateFile: (certificateFilePath) => {
 		let publicKeyBlobLength = ref.alloc('int');
 		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );

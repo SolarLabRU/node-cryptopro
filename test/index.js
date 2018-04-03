@@ -21,9 +21,10 @@ describe('Тесты', function () {
 
 	const sourceMessage = "text message for tests";
 	const buffer = Buffer.from(sourceMessage);
-
 	const sourceMessageBytes = new Uint8Array(buffer);
+
 	const hashForSourceMessage = new Uint8Array([82,181,47,23,1,228,41,72,41,214,88,194,195,191,190,222,223,73,66,111,196,65,133,235,206,122,89,171,160,130,48,90]);
+
 
 	const certificateSubjectKey = 'NewCert2012';
 

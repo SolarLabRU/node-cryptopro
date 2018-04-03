@@ -112,6 +112,98 @@ EXPORT CallResult VerifySignature(
     return ResultSuccess();
 }
 
+EXPORT CallResult SignPreparedHash(
+    const char* keyContainer, 
+    BYTE* hashBytesArray, 
+    DWORD hashBytesArrayLength, 
+    BYTE* signatureBytesArray, 
+    DWORD* signatureBytesArrayLength
+) {
+    HCRYPTPROV hProv = 0; // Дескриптор CSP
+    HCRYPTHASH hHash = 0;
+
+    BYTE *pbSignature = NULL;
+    DWORD signatureLength = 0;
+
+    // Получение дескриптора контекста криптографического провайдера
+    if(!CryptAcquireContext( &hProv, keyContainer, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/ 0))
+        return HandleError("Error during CryptAcquireContext");
+
+    // Создание объекта функции хеширования
+    if(!CryptCreateHash(hProv, CALG_GR3411_2012_256, /*CALG_GR3411,*/0, 0, &hHash))
+        return HandleError("Error during CryptCreateHash");
+
+   if(!CryptSetHashParam(hHash, HP_HASHVAL, hashBytesArray, 0))
+        return HandleError("Error during CryptSetHashParam");
+
+    // Определение размера подписи и распределение памяти
+    if(!CryptSignHash(hHash, AT_KEYEXCHANGE, NULL, 0, NULL, &signatureLength))
+        return HandleError("Error during CryptSignHash");
+
+    // Распределение памяти под буфер подписи
+    pbSignature = (BYTE *)malloc(signatureLength);
+    if(!pbSignature)
+        return HandleError("Out of memory");
+
+    // Подпись объекта функции хеширования
+    if(!CryptSignHash(hHash, AT_KEYEXCHANGE, NULL, 0, pbSignature, &signatureLength))
+        return HandleError("Error during CryptSignHash");
+    
+    memcpy(signatureBytesArray, pbSignature, signatureLength);
+    memcpy(signatureBytesArrayLength, &signatureLength, sizeof(signatureLength));
+
+    free(pbSignature);
+    // Уничтожение объекта функции хеширования
+    if(hHash) 
+        CryptDestroyHash(hHash);
+    if(hProv) 
+        CryptReleaseContext(hProv, 0);
+
+    return ResultSuccess();
+}
+
+EXPORT CallResult VerifyPreparedHashSignature(
+    BYTE* hashBytesArray, DWORD hashBytesArrayLength, 
+    BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
+    BYTE* publicKeyBlob, int publicKeyBlobLength,
+    BOOL *verificationResultToReturn
+) {
+    HCRYPTPROV hProv = 0; // Дескриптор CSP
+    HCRYPTHASH hHash = 0;
+    HCRYPTKEY hPubKey = 0;
+
+    BOOL verificationResult = FALSE;
+
+    if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
+        return HandleError("CryptAcquireContext failed");
+
+    // Получение откытого ключа отправителя и импортирование его в CSP. Дескриптор открытого ключа возвращается в hPubKey
+    if(!CryptImportKey(hProv, publicKeyBlob, publicKeyBlobLength, 0, 0, &hPubKey))
+        return HandleError("Public key import failed");
+
+    // Создание объекта функции хеширования
+    if(!CryptCreateHash(hProv, CALG_GR3411_2012_256, /*CALG_GR3411, */0, 0, &hHash))
+        return HandleError("Error during CryptCreateHash");
+
+   if(!CryptSetHashParam(hHash, HP_HASHVAL, hashBytesArray, 0))
+        return HandleError("Error during CryptSetHashParam");
+
+    // Проверка цифровой подписи
+    if(CryptVerifySignature(hHash, signatureByteArray, signatureBytesArrayLength, hPubKey, NULL, 0))
+        verificationResult = TRUE;
+    else
+        verificationResult = FALSE;
+
+    memcpy(verificationResultToReturn, &verificationResult, sizeof(verificationResult));
+
+    if(hHash) 
+        CryptDestroyHash(hHash);
+    if(hProv) 
+        CryptReleaseContext(hProv, 0);
+
+    return ResultSuccess();
+}
+
 EXPORT CallResult Encrypt(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 

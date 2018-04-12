@@ -39,6 +39,7 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
+	'GenerateSessionKey': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
@@ -270,6 +271,47 @@ module.exports = {
 			throw new Error(result.errorMessage);
 		} else {	
 			return publicKeyBlob.subarray(0, publicKeyBlobLength.deref());
+		}
+	},
+	/**
+	 * Шифрование по алгоритму ГОСТ 28147
+	 * 
+	 * Шифрование производится на сессионном ключе.
+	 * Для передачи на сторону получателя сессионный ключ шифруется на ключе согласования по алгоритму CALG_PRO_EXPORT и экспортируется в формате SIMPLEBLOB.
+	 * Ключ согласования получается импортом открытого ключа получателя на закрытом ключе отправителя.
+	 *
+	 * Используется провайдер типа PROV_GOST_2012_256 и ключи алгоритма ГОСТ Р 34.10-2012 длины 256 бит (длина открытого ключа 512 бит).
+	 *
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___c_s_p_examples_4_0vs3_6.html
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___pro_c_s_p_key_1gd56b0fb8e9d9c0278e45eb1994c38161.html
+	 *
+	 * @param {Uint8Array} bytesArrayToEncrypt Исходные данные для шифрования
+	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
+	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
+	 *
+	 * @return {EncryptionResult}  
+	 */
+	generateSessionKey: (senderContainerName, responderPublicKey) => {
+		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
+		let IVLength = ref.alloc('int');
+
+		let sessionKeyBlobLength = ref.alloc('int');
+		let sessionKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
+
+		let result = cryptoLib.GenerateSessionKey(
+			sessionKeyBlobLength, 
+			sessionKeyBlob, 
+			senderContainerName,
+			responderPublicKey, responderPublicKey.length,
+			IV, IVLength
+		);
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {
+			return {
+				sessionKeyBlob: sessionKeyBlob.subarray(0, sessionKeyBlobLength.deref()),
+				IV: IV.subarray(0, IVLength.deref())
+			};
 		}
 	}
 };

@@ -28,6 +28,13 @@ EXPORT CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *pu
 
 EXPORT CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateSubjectKey);
 
+EXPORT CallResult GenerateSessionKey(
+    DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
+    const char* senderContainerName, 
+    BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
+    BYTE* IV, DWORD* IVLength
+);
+
 EXPORT CallResult SignHash(
     const char* keyContainer, 
     BYTE* messageBytesArray, 

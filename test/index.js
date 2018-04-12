@@ -46,7 +46,7 @@ describe('Тесты', function () {
 	});	
 
 	it('Загрузка публичного ключа из файла сертификата', async () => {
-		const certificateFilePath = '2012_Cert.cer';
+		const certificateFilePath = './2012_Cert.cer';
 
 		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(certificateFilePath);
 
@@ -86,6 +86,13 @@ describe('Тесты', function () {
 		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
 
 		expect(decryptedMessage).to.equal(sourceMessage);
+	});
+
+	it('Генерация сессионного ключа', async () => {
+		const sessionKey = nodeCryptopro.generateSessionKey(senderContainerName, publicKeyBlob);
+console.log(sessionKey);
+		expect(sessionKey.sessionKeyBlob).to.have.lengthOf(73);
+		expect(sessionKey.IV).to.have.lengthOf(8);
 	});
 
 });

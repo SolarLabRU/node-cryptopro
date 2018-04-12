@@ -351,6 +351,93 @@ EXPORT CallResult Decrypt(
     return ResultSuccess();
 }
 
+EXPORT CallResult GenerateSessionKey(
+    DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
+    const char* senderContainerName, 
+    BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
+    BYTE* IV, DWORD* IVLength
+) {
+    HCRYPTPROV hProv = 0; // Дескриптор CSP
+    HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
+    HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
+    HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
+
+    BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
+    DWORD dwBlobLenSimple;
+
+    BYTE *pbIV = NULL;      // Вектор инициализации сессионного ключа
+    DWORD dwIV = 0;
+
+    DWORD bufLen = 0;
+    ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
+    if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
+       return HandleError("Error during CryptAcquireContext");
+
+    // Получение дескриптора закрытого ключа отправителя
+    if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
+        return HandleError("Error during CryptGetUserKey private key");
+
+    // Получение ключа согласования импортом открытого ключа получателя на закрытом ключе отправителя
+    if(!CryptImportKey(hProv, responderPublicKeyBlob, responderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
+       return HandleError("Error during CryptImportKey public key");
+
+    // Установление алгоритма ключа согласования
+    if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
+       return HandleError("Error during CryptSetKeyParam agree key");
+
+    // Генерация сессионного ключа
+    if(!CryptGenKey(hProv, CALG_G28147, CRYPT_EXPORTABLE, &hSessionKey))
+       return HandleError("Error during CryptGenKey");
+
+     //--------------------------------------------------------------------
+    // Зашифрование сессионного ключа
+    //--------------------------------------------------------------------
+
+    // Определение размера BLOBа сессионного ключа и распределение памяти
+    if(!CryptExportKey( hSessionKey, hAgreeKey, SIMPLEBLOB, 0, NULL, &dwBlobLenSimple))
+       return HandleError("Error computing BLOB length");
+
+    pbKeyBlobSimple = (BYTE*)malloc(dwBlobLenSimple);
+
+    if(!pbKeyBlobSimple) 
+       return HandleError("Out of memory");
+
+    // Зашифрование сессионного ключа на ключе Agree, экспорт в pbKeyBlobSimple
+    if(!CryptExportKey(hSessionKey, hAgreeKey, SIMPLEBLOB, 0, pbKeyBlobSimple, &dwBlobLenSimple))
+        return HandleError("Error during CryptExportKey");
+
+    // Определение размера вектора инициализации сессионного ключа
+    if(!CryptGetKeyParam(hSessionKey, KP_IV, NULL, &dwIV, 0))
+       return HandleError("Error computing IV length");
+
+    pbIV = (BYTE*)malloc(dwIV);
+    if (!pbIV)
+       return HandleError("Out of memory");
+    
+    // Определение вектора инициализации сессионного ключа
+    if(!CryptGetKeyParam(hSessionKey, KP_IV, pbIV, &dwIV, 0))
+       return HandleError("Error during CryptGetKeyParam");
+
+    memcpy(IV, pbIV, dwIV);
+    memcpy(IVLength, &dwIV, sizeof(dwIV));
+
+    memcpy(sessionKeyBlob, pbKeyBlobSimple, dwBlobLenSimple);
+    memcpy(sessionKeyBlobLength, &dwBlobLenSimple, sizeof(dwBlobLenSimple));
+
+    free(pbIV);
+    free(pbKeyBlobSimple);
+    if(hAgreeKey)
+       CryptDestroyKey(hAgreeKey);
+    if(hSessionKey)
+       CryptDestroyKey(hSessionKey);
+    if(hProv) 
+        CryptReleaseContext(hProv, 0);
+
+    return ResultSuccess();
+}
+
 EXPORT CallResult CreateHash(BYTE* bytesArrayToHash, DWORD bytesArrayToHashLength, BYTE* hash, DWORD* hashLength) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTHASH hHash = 0;

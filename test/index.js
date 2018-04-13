@@ -31,7 +31,11 @@ describe('Тесты', function () {
 	let hashSignatureForSourceMessage = "";
 
 	let publicKeyBlob = {};
+
+	let generatedSessionKey = {};
+
 	let encryptionResult = {};
+	let encryptionResult2 = {};
 
 	it('Вычисление хеша', async () => {
 		const hash = nodeCryptopro.createHash(sourceMessageBytes);
@@ -66,7 +70,8 @@ describe('Тесты', function () {
 	});
 
 	it('Шифрование сообщения по алгоритму ГОСТ 28147', async () => {
-		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, publicKeyBlob);
+		const responderPublicKeyBlob = publicKeyBlob;
+		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, responderPublicKeyBlob);
 
 		expect(encryptionResult.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 		expect(encryptionResult.sessionKeyBlob).to.have.lengthOf(73);
@@ -88,9 +93,56 @@ describe('Тесты', function () {
 		expect(decryptedMessage).to.equal(sourceMessage);
 	});
 
+	it('Шифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {
+		const responderPublicKeyBlob = publicKeyBlob;
+
+		generatedSessionKey = nodeCryptopro.generateSessionKey(senderContainerName, responderPublicKeyBlob);
+
+		encryptionResult2 = nodeCryptopro.encryptWithSessionKey(
+			sourceMessageBytes, 
+			senderContainerName, 
+			responderPublicKeyBlob, 
+			generatedSessionKey.sessionKeyBlob, 
+			generatedSessionKey.IV
+		);
+
+		expect(encryptionResult2.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
+	});
+
+	it('Дешифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {
+		const senderPublicKeyBlob = publicKeyBlob;
+
+		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptionResult2.encryptedBytesArray, 
+			responderContainerName,
+			senderPublicKeyBlob,
+			generatedSessionKey.IV,
+			generatedSessionKey.sessionKeyBlob);
+
+		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
+
+		expect(decryptedMessage).to.equal(sourceMessage);
+	});
+
+	it('Перекодирование сессионного ключа', async () => {
+		const oldResponderPublicKeyBlob = publicKeyBlob;
+		const newResponderPublicKeyBlob = publicKeyBlob;
+
+		let generatedSessionKey2 = nodeCryptopro.generateSessionKey(senderContainerName, oldResponderPublicKeyBlob);
+
+		let result = nodeCryptopro.recodeSessionKey(
+			generatedSessionKey2.sessionKeyBlob, 
+			generatedSessionKey2.IV, 
+			senderContainerName, 
+			oldResponderPublicKeyBlob, 
+			newResponderPublicKeyBlob);
+
+		expect(1).to.equal(1);
+	});
+
 	it('Генерация сессионного ключа', async () => {
 		const sessionKey = nodeCryptopro.generateSessionKey(senderContainerName, publicKeyBlob);
-console.log(sessionKey);
+
 		expect(sessionKey.sessionKeyBlob).to.have.lengthOf(73);
 		expect(sessionKey.IV).to.have.lengthOf(8);
 	});

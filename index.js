@@ -38,6 +38,7 @@ var CallResult = Struct({
 const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
+	'EncryptWithSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'GenerateSessionKey': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
@@ -45,7 +46,8 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
-	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']]
+	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
+	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
 });
 
 
@@ -75,6 +77,14 @@ module.exports = {
 	 *
 	 * @typedef {Object} EncryptionResult
 	 * @property {Uint8Array} encryptedBytesArray Зашифрованное сообщение
+	 * @property {Uint8Array} sessionKeyBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
+	 * @property {Uint8Array} IV Вектор инициализации сессионного ключа
+	 */
+
+	/**
+	 * Объект, содержащий зашифрованный сессионный ключ
+	 *
+	 * @typedef {Object} EncryptedSessionKey
 	 * @property {Uint8Array} sessionKeyBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
 	 * @property {Uint8Array} IV Вектор инициализации сессионного ключа
 	 */
@@ -122,6 +132,25 @@ module.exports = {
 			};
 		}
 	},
+
+	encryptWithSessionKey: (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV) => {
+		let result = cryptoLib.EncryptWithSessionKey(
+			sessionKeySimpleBlob, 
+			sessionKeySimpleBlob.length, 
+			senderContainerName,
+			responderPublicKey, responderPublicKey.length,
+			bytesArrayToEncrypt, bytesArrayToEncrypt.length, 
+			IV, IV.length
+		);
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {
+			return {
+				encryptedBytesArray: bytesArrayToEncrypt
+			};
+		}
+	},
+
 	/**
 	 * Дешифрование по алгоритму ГОСТ 28147
 	 *
@@ -274,10 +303,9 @@ module.exports = {
 		}
 	},
 	/**
-	 * Шифрование по алгоритму ГОСТ 28147
+	 * Генерация сессионного ключа для шифрования по алгоритму ГОСТ 28147
 	 * 
-	 * Шифрование производится на сессионном ключе.
-	 * Для передачи на сторону получателя сессионный ключ шифруется на ключе согласования по алгоритму CALG_PRO_EXPORT и экспортируется в формате SIMPLEBLOB.
+	 * Сессионный ключ шифруется на ключе согласования по алгоритму CALG_PRO_EXPORT и экспортируется в формате SIMPLEBLOB.
 	 * Ключ согласования получается импортом открытого ключа получателя на закрытом ключе отправителя.
 	 *
 	 * Используется провайдер типа PROV_GOST_2012_256 и ключи алгоритма ГОСТ Р 34.10-2012 длины 256 бит (длина открытого ключа 512 бит).
@@ -285,11 +313,10 @@ module.exports = {
 	 * https://cpdn.cryptopro.ru/content/csp40/html/group___c_s_p_examples_4_0vs3_6.html
 	 * https://cpdn.cryptopro.ru/content/csp40/html/group___pro_c_s_p_key_1gd56b0fb8e9d9c0278e45eb1994c38161.html
 	 *
-	 * @param {Uint8Array} bytesArrayToEncrypt Исходные данные для шифрования
 	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
 	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
 	 *
-	 * @return {EncryptionResult}  
+	 * @return {EncryptedSessionKey}  
 	 */
 	generateSessionKey: (senderContainerName, responderPublicKey) => {
 		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
@@ -311,6 +338,42 @@ module.exports = {
 			return {
 				sessionKeyBlob: sessionKeyBlob.subarray(0, sessionKeyBlobLength.deref()),
 				IV: IV.subarray(0, IVLength.deref())
+			};
+		}
+	},
+	/**
+	 * Перешифрование сессионного ключа
+	 * 
+	 * Сессионный ключ шифруется на ключе согласования по алгоритму CALG_PRO_EXPORT и экспортируется в формате SIMPLEBLOB.
+	 * Ключ согласования получается импортом открытого ключа получателя на закрытом ключе отправителя.
+	 *
+	 * Используется провайдер типа PROV_GOST_2012_256 и ключи алгоритма ГОСТ Р 34.10-2012 длины 256 бит (длина открытого ключа 512 бит).
+	 *
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___c_s_p_examples_4_0vs3_6.html
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___pro_c_s_p_key_1gd56b0fb8e9d9c0278e45eb1994c38161.html
+	 *
+	 * @param {Uint8Array} sessionKeySimpleBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
+	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
+	 * @param {Uint8Array} oldResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого зашифрован сессионный ключ
+	 * @param {Uint8Array} newResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого будет перешифрован сессионный ключ
+	 *
+	 * @return {EncryptedSessionKey}  
+	 */	
+	recodeSessionKey: (sessionKeySimpleBlob, IV, senderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob) => {
+		let result = cryptoLib.RecodeSessionKey(
+			sessionKeySimpleBlob, sessionKeySimpleBlob.length,
+			senderContainerName,
+			oldResponderPublicKeyBlob, oldResponderPublicKeyBlob.length,
+			newResponderPublicKeyBlob, newResponderPublicKeyBlob.length,
+			IV, IV.length
+		);
+
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {
+			return {
+				sessionKeyBlob: sessionKeySimpleBlob.subarray(0, sessionKeySimpleBlob.length),
+				IV: IV.subarray(0, IV.length)
 			};
 		}
 	}

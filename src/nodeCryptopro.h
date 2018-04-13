@@ -61,6 +61,24 @@ EXPORT CallResult Encrypt(
     DWORD* IVLength
 );
 
+EXPORT CallResult EncryptWithSessionKey(
+    BYTE* sessionKeySimpleBlob, DWORD sessionKeySimpleBlobLength,
+    const char* senderContainerName, 
+    BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
+    BYTE* textToEncrypt, 
+    int textToEncryptLength, 
+    BYTE* IV, 
+    int IVLength
+);
+
+EXPORT CallResult RecodeSessionKey(
+    BYTE* sessionKeySimpleBlob, DWORD sessionKeySimpleBlobLength,
+    const char* senderContainerName, 
+    BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
+    BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
+    BYTE* IV, int IVLength
+);
+
 EXPORT CallResult Decrypt(
     const char* responderContainerName,
     BYTE* senderPublicKeyBlob,

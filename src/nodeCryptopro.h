@@ -40,7 +40,8 @@ EXPORT CallResult SignHash(
     BYTE* messageBytesArray, 
     DWORD messageBytesArrayLength, 
     BYTE* signatureBytesArray, 
-    DWORD* signatureBytesArrayLength
+    DWORD* signatureBytesArrayLength,
+    BYTE* hash
 );
 
 EXPORT CallResult VerifySignature(
@@ -48,6 +49,22 @@ EXPORT CallResult VerifySignature(
     BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
     BYTE* publicKeyBlob, int publicKeyBlobLength,
     BOOL *verificationResultToReturn
+);
+
+EXPORT CallResult SignPreparedHash(
+    const char* keyContainer, 
+    BYTE* hashBytesArray, 
+    DWORD hashBytesArrayLength, 
+    BYTE* signatureBytesArray, 
+    DWORD* signatureBytesArrayLength
+);
+
+EXPORT CallResult VerifyPreparedHashSignature(
+    BYTE* hashBytesArray, DWORD hashBytesArrayLength, 
+    BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
+    BYTE* publicKeyBlob, int publicKeyBlobLength,
+    BOOL *verificationResultToReturn,
+    BYTE* hash
 );
 
 EXPORT CallResult Encrypt(

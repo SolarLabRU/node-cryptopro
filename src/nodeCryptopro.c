@@ -23,10 +23,14 @@ EXPORT CallResult SignHash(
     BYTE* messageBytesArray, 
     DWORD messageBytesArrayLength, 
     BYTE* signatureBytesArray, 
-    DWORD* signatureBytesArrayLength
+    DWORD* signatureBytesArrayLength,
+    BYTE* hash
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTHASH hHash = 0;
+
+    BYTE rgbHash[GR3411LEN];
+    DWORD cbHash = GR3411LEN;
 
     BYTE *pbSignature = NULL;
     DWORD signatureLength = 0;
@@ -42,6 +46,10 @@ EXPORT CallResult SignHash(
     // Вычисление криптографического хеша буфера
     if(!CryptHashData(hHash, messageBytesArray, messageBytesArrayLength, 0))
         return HandleError("Error during CryptHashData");
+
+    if(CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
+        memcpy(hash, rgbHash, GR3411LEN);
+    }
 
     // Определение размера подписи и распределение памяти
     if(!CryptSignHash(hHash, AT_KEYEXCHANGE, NULL, 0, NULL, &signatureLength))
@@ -166,12 +174,16 @@ EXPORT CallResult VerifyPreparedHashSignature(
     BYTE* hashBytesArray, DWORD hashBytesArrayLength, 
     BYTE* signatureByteArray, DWORD signatureBytesArrayLength,
     BYTE* publicKeyBlob, int publicKeyBlobLength,
-    BOOL *verificationResultToReturn
+    BOOL *verificationResultToReturn,
+    BYTE* hash
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTHASH hHash = 0;
     HCRYPTKEY hPubKey = 0;
 
+    BYTE rgbHash[GR3411LEN];
+    DWORD cbHash = GR3411LEN;
+    
     BOOL verificationResult = FALSE;
 
     if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
@@ -185,8 +197,12 @@ EXPORT CallResult VerifyPreparedHashSignature(
     if(!CryptCreateHash(hProv, CALG_GR3411_2012_256, /*CALG_GR3411, */0, 0, &hHash))
         return HandleError("Error during CryptCreateHash");
 
-   if(!CryptSetHashParam(hHash, HP_HASHVAL, hashBytesArray, 0))
+    if(!CryptSetHashParam(hHash, HP_HASHVAL, hashBytesArray, 0))
         return HandleError("Error during CryptSetHashParam");
+
+    if(CryptGetHashParam(hHash, HP_HASHVAL, rgbHash, &cbHash, 0)) {
+        memcpy(hash, rgbHash, GR3411LEN);
+    }
 
     // Проверка цифровой подписи
     if(CryptVerifySignature(hHash, signatureByteArray, signatureBytesArrayLength, hPubKey, NULL, 0))

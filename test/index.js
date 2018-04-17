@@ -23,12 +23,16 @@ describe('Тесты', function () {
 	const buffer = Buffer.from(sourceMessage);
 	const sourceMessageBytes = new Uint8Array(buffer);
 
+	console.log('sourceMessage: ' + buffer.toString('hex'));
+
 	const hashForSourceMessage = new Uint8Array([82,181,47,23,1,228,41,72,41,214,88,194,195,191,190,222,223,73,66,111,196,65,133,235,206,122,89,171,160,130,48,90]);
 
 
 	const certificateSubjectKey = 'NewCert2012';
 
 	let hashSignatureForSourceMessage = "";
+
+	let signatureForPreparedHash = "";
 
 	let publicKeyBlob = {};
 
@@ -39,7 +43,8 @@ describe('Тесты', function () {
 
 	it('Вычисление хеша', async () => {
 		const hash = nodeCryptopro.createHash(sourceMessageBytes);
-
+		console.log('hash from CreateHash: ' + Buffer.from(hash).toString('hex'));
+		
 		expect(hash).to.deep.equal(hashForSourceMessage);
 	});
 
@@ -59,12 +64,35 @@ describe('Тесты', function () {
 
 	it('Вычисление цифровой подписи хеша', async () => {
 		hashSignatureForSourceMessage = nodeCryptopro.signHash(senderContainerName, sourceMessageBytes);
-
+		console.log('sign from signHash: ' + Buffer.from(hashSignatureForSourceMessage).toString('hex'));
+		
 		expect(hashSignatureForSourceMessage).to.have.lengthOf(64);
 	});
 
 	it('Проверка цифровой подписи хеша', async () => {
 		const isVerified = nodeCryptopro.verifySignature(sourceMessageBytes, hashSignatureForSourceMessage, publicKeyBlob);
+
+		expect(isVerified).to.equal(true);
+	});
+
+	it('Вычисление цифровой подписи предварительно подготовленного хеша', async () => {
+		signatureForPreparedHash = nodeCryptopro.signPreparedHash(senderContainerName, hashForSourceMessage);
+
+		expect(signatureForPreparedHash).to.have.lengthOf(64);
+	});
+
+	it('Проверка цифровой подписи предварительно подготовленного хеша', async () => {
+		const responderPublicKeyBlob = publicKeyBlob;
+
+		const isVerified = nodeCryptopro.verifyPreparedHashSignature(hashForSourceMessage, signatureForPreparedHash, responderPublicKeyBlob);
+
+		expect(isVerified).to.equal(true);
+	});
+
+	it('Верификация подписи, созданной с помощью SignPreparedHash, функцией VerifySignature', async () => {
+		const responderPublicKeyBlob = publicKeyBlob;
+
+		const isVerified = nodeCryptopro.verifySignature(sourceMessageBytes, signatureForPreparedHash, responderPublicKeyBlob);
 
 		expect(isVerified).to.equal(true);
 	});

@@ -30,6 +30,8 @@ describe('Тесты', function () {
 
 	let hashSignatureForSourceMessage = "";
 
+	let signatureForPreparedHash = "";
+
 	let publicKeyBlob = {};
 
 	let generatedSessionKey = {};
@@ -68,6 +70,21 @@ describe('Тесты', function () {
 
 		expect(isVerified).to.equal(true);
 	});
+
+	it('Вычисление цифровой подписи предварительно подготовленного хеша', async () => {
+		signatureForPreparedHash = nodeCryptopro.signPreparedHash(senderContainerName, hashForSourceMessage);
+
+		expect(signatureForPreparedHash).to.have.lengthOf(64);
+	});
+
+	it('Проверка цифровой подписи предварительно подготовленного хеша', async () => {
+		const responderPublicKeyBlob = publicKeyBlob;
+
+		const isVerified = nodeCryptopro.verifyPreparedHashSignature(hashForSourceMessage, signatureForPreparedHash, responderPublicKeyBlob);
+
+		expect(isVerified).to.equal(true);
+	});
+
 
 	it('Шифрование сообщения по алгоритму ГОСТ 28147', async () => {
 		const responderPublicKeyBlob = publicKeyBlob;

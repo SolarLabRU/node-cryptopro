@@ -409,14 +409,14 @@ EXPORT CallResult EncryptWithSessionKey(
     DWORD bufLen = 0;
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
-    if(!hContainerProv) {
+  //  if(!hContainerProv) {
         // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
 //        gettimeofday(&start, NULL);
         if(!CryptAcquireContext(&hContainerProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
            return HandleError("Error during CryptAcquireContext");
   //      gettimeofday(&stop, NULL);
     //    printf("CryptAcquireContext: %lu\n", stop.tv_usec - start.tv_usec);
-    }
+  //  }
     
     // Получение дескриптора закрытого ключа отправителя
   //  gettimeofday(&start, NULL);

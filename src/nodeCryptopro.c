@@ -28,11 +28,11 @@ EXPORT CallResult AcquireContextForContainer(
     struct timeval stop, start;
 
     // Получение дескриптора контекста криптографического провайдера
-    gettimeofday(&start, NULL);
+ //   gettimeofday(&start, NULL);
     if(!CryptAcquireContext( &hContainerProv, keyContainer, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/ 0))
         return HandleError("Error during CryptAcquireContext");
-    gettimeofday(&stop, NULL);
-    printf("AcquireContextForContainer: %lu\n", stop.tv_usec - start.tv_usec);
+ //   gettimeofday(&stop, NULL);
+  //  printf("AcquireContextForContainer: %lu\n", stop.tv_usec - start.tv_usec);
 
     if(keyContainerName)
         free(keyContainerName);

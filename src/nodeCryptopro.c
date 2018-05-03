@@ -1,4 +1,4 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -363,6 +363,10 @@ EXPORT CallResult EncryptWithSessionKey(
 ) {
 //    struct timeval stop, start;
 //    gettimeofday(&start, NULL);
+    SYSTEMTIME start, end;
+    GetSystemTime(&start);
+    LONG start_ms = (start.wSecond * 1000) + start.wMilliseconds;
+    printf("Time: %d\n", start_ms);
 
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -415,6 +419,10 @@ EXPORT CallResult EncryptWithSessionKey(
        CryptDestroyKey(hSessionKey);
     if(hProv) 
         CryptReleaseContext(hProv, 0);
+
+    GetSystemTime(&end);
+    LONG end_ms = (end.wSecond * 1000) + end.wMilliseconds - start_ms;
+    printf("Time: %d\n", end_ms);
 
 //    gettimeofday(&stop, NULL);
 //    printf("EncryptWithSessionKey: %lu\n", stop.tv_usec - start.tv_usec);

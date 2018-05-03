@@ -41,10 +41,10 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'EncryptWithSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
 	'GenerateSessionKey': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int'), ref.refType('byte')]],
+	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool'), ref.refType('byte')]],
+	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
@@ -133,8 +133,33 @@ module.exports = {
 		}
 	},
 
-	encryptWithSessionKey: (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV) => {
-		let result = cryptoLib.EncryptWithSessionKey(
+	encryptWithSessionKey: async (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV) => {
+
+		let encryptWithSessionKeyAsync = () => {
+			return new Promise( (resolve, reject) => {
+				cryptoLib.EncryptWithSessionKey.async(
+					sessionKeySimpleBlob, 
+					sessionKeySimpleBlob.length, 
+					senderContainerName,
+					responderPublicKey, responderPublicKey.length,
+					bytesArrayToEncrypt, bytesArrayToEncrypt.length, 
+					IV, IV.length,
+					(err, res) => {
+						if(err) 
+							reject(err);
+						if(res.status) 
+							throw new Error(res.errorMessage);
+						resolve({
+							encryptedBytesArray: bytesArrayToEncrypt
+						});
+					}
+				);
+			})
+		}
+
+		return await encryptWithSessionKeyAsync();
+
+/*		let result = cryptoLib.EncryptWithSessionKey.async(
 			sessionKeySimpleBlob, 
 			sessionKeySimpleBlob.length, 
 			senderContainerName,
@@ -148,7 +173,7 @@ module.exports = {
 			return {
 				encryptedBytesArray: bytesArrayToEncrypt
 			};
-		}
+		}*/
 	},
 
 	/**
@@ -193,20 +218,17 @@ module.exports = {
 	signHash: (keyContainerName, messageBytesArray) => {
 		let signatureBytesArrayLength = ref.alloc('int');
 		let signatureBytesArray = new Uint8Array( MAX_SIGNATURE_LENGTH );
-		let hash = new Uint8Array(GOST3411_HASH_LENGTH);
 
 		let result = cryptoLib.SignHash(
 			keyContainerName, 
 			messageBytesArray, 
 			messageBytesArray.length, 
 			signatureBytesArray, 
-			signatureBytesArrayLength,
-			hash
+			signatureBytesArrayLength
 		);
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {	
-			console.log('hash from SignHash: ' + Buffer.from(hash).toString('hex'));
 			return signatureBytesArray.subarray(0, signatureBytesArrayLength.deref());
 		}
 	},
@@ -267,21 +289,17 @@ module.exports = {
 	 */
 	verifyPreparedHashSignature: (hashBytesArray, signatureBytesArray, publicKey) => {
 		let verificationResult = ref.alloc('bool');
-		let hash = new Uint8Array(GOST3411_HASH_LENGTH);
 
 		let result = cryptoLib.VerifyPreparedHashSignature(
 			hashBytesArray, hashBytesArray.length, 
 			signatureBytesArray, signatureBytesArray.length, 
 			publicKey, publicKey.length,
-			verificationResult,
-			hash
+			verificationResult
 		);
 		
 		if(result.status) {
 			throw new Error(result.errorMessage);
 		} else {
-			console.log('hash from VerifyPreparedHashSignature: ' + Buffer.from(hash).toString('hex'));
-
 			return verificationResult.deref();
 		}
 	},

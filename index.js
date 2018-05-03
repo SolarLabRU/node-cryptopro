@@ -36,6 +36,7 @@ var CallResult = Struct({
 });
 
 const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
+	'AcquireContextForContainer': [CallResult, ['string']],
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'EncryptWithSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
@@ -50,8 +51,16 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
 });
 
-
 module.exports = {
+	acquireContextForContainer: (containerName) => {
+		let result = cryptoLib.AcquireContextForContainer(containerName);
+
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {
+			return true;
+		}
+	},
 	/**
 	 * Вычисление хеша по алгоритму ГОСТ Р 34.11-2012 длинной 256 бит
 	 *

@@ -64,6 +64,12 @@ describe('Тесты', function () {
 		expect(publicKeyBlob).to.have.lengthOf(101);
 	});	
 
+	it('Получение дескриптора контейнера', async () => {
+		const result = nodeCryptopro.acquireContextForContainer(senderContainerName);
+		
+		expect(result).to.equal(true);
+	});
+
 	it('Вычисление цифровой подписи хеша', async () => {
 		hashSignatureForSourceMessage = nodeCryptopro.signHash(senderContainerName, sourceMessageBytes);
 		
@@ -79,7 +85,7 @@ describe('Тесты', function () {
 	it('Вычисление цифровой подписи предварительно подготовленного хеша', async () => {
 		signatureForPreparedHash = nodeCryptopro.signPreparedHash(senderContainerName, hashForSourceMessage);
 		
-		console.log("signatureForPreparedHash: " + Buffer.from(signatureForPreparedHash).toString('hex'));
+//		console.log("signatureForPreparedHash: " + Buffer.from(signatureForPreparedHash).toString('hex'));
 
 		expect(signatureForPreparedHash).to.have.lengthOf(64);
 	});
@@ -89,7 +95,7 @@ describe('Тесты', function () {
 
 		const isVerified = nodeCryptopro.verifyPreparedHashSignature(hashForSourceMessage, signatureForPreparedHash, responderPublicKeyBlob);
 
-		console.log("responderPublicKeyBlob: " + Buffer.from(responderPublicKeyBlob).toString('hex'));
+//		console.log("responderPublicKeyBlob: " + Buffer.from(responderPublicKeyBlob).toString('hex'));
 		
 		expect(isVerified).to.equal(true);
 	});
@@ -577,7 +583,7 @@ describe('Тесты', function () {
 		let timeInMs = Date.now();
 		
 		encryptionResult2 = await nodeCryptopro.encryptWithSessionKey(
-			messageBytes, 
+			sourceMessageBytes, 
 			senderContainerName, 
 			responderPublicKeyBlob, 
 			generatedSessionKey.sessionKeyBlob, 
@@ -587,7 +593,7 @@ describe('Тесты', function () {
 		timeInMs = Date.now() - timeInMs;
 		console.log('Время шифрования = ', timeInMs + " мс");
 
-		expect(encryptionResult2.encryptedBytesArray).to.have.lengthOf(messageBytes.length);
+		expect(encryptionResult2.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 	});
 
 	it('Дешифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {

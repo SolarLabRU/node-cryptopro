@@ -24,6 +24,8 @@ CallResult ResultSuccess() {
 
 CallResult HandleError(const char *s);
 
+EXPORT CallResult AcquireContextForContainer(const char* keyContainer);
+
 EXPORT CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName);
 
 EXPORT CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateSubjectKey);

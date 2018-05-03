@@ -19,6 +19,34 @@
 
 #include "nodeCryptopro.h"
 
+HCRYPTPROV hContainerProv = 0; // Дескриптор CSP
+const char* keyContainerName = NULL;
+
+EXPORT CallResult AcquireContextForContainer(
+    const char* keyContainer
+) {
+    struct timeval stop, start;
+
+    // Получение дескриптора контекста криптографического провайдера
+    gettimeofday(&start, NULL);
+    if(!CryptAcquireContext( &hContainerProv, keyContainer, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/ 0))
+        return HandleError("Error during CryptAcquireContext");
+    gettimeofday(&stop, NULL);
+    printf("AcquireContextForContainer: %lu\n", stop.tv_usec - start.tv_usec);
+
+    if(keyContainerName)
+        free(keyContainerName);
+
+    keyContainerName = (char *)malloc(strlen(keyContainer));
+    
+    if(!keyContainerName)
+        return HandleError("Out of memory");
+
+    strcpy(keyContainerName, keyContainer);
+
+    return ResultSuccess();
+}
+
 EXPORT CallResult SignHash(
     const char* keyContainer, 
     BYTE* messageBytesArray, 
@@ -361,8 +389,7 @@ EXPORT CallResult EncryptWithSessionKey(
     BYTE* IV, 
     int IVLength
 ) {
-//    struct timeval stop, start;
-//    gettimeofday(&start, NULL);
+    struct timeval stop, start;
 
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -378,35 +405,61 @@ EXPORT CallResult EncryptWithSessionKey(
     DWORD bufLen = 0;
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
-    // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
-    if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
-       return HandleError("Error during CryptAcquireContext");
 
+    if(!hContainerProv) {
+        // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
+        gettimeofday(&start, NULL);
+        if(!CryptAcquireContext(&hContainerProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
+           return HandleError("Error during CryptAcquireContext");
+        gettimeofday(&stop, NULL);
+        printf("CryptAcquireContext: %lu\n", stop.tv_usec - start.tv_usec);
+    }
+    
     // Получение дескриптора закрытого ключа отправителя
-    if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
+    gettimeofday(&start, NULL);
+    if(!CryptGetUserKey(hContainerProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
+    gettimeofday(&stop, NULL);
+    printf("CryptGetUserKey: %lu\n", stop.tv_usec - start.tv_usec);
 
     // Получение ключа согласования импортом открытого ключа получателя на закрытом ключе отправителя
-    if(!CryptImportKey(hProv, responderPublicKeyBlob, responderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
+    gettimeofday(&start, NULL);
+    if(!CryptImportKey(hContainerProv, responderPublicKeyBlob, responderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
        return HandleError("Error during CryptImportKey public key");
+    gettimeofday(&stop, NULL);
+    printf("CryptImportKey: %lu\n", stop.tv_usec - start.tv_usec);
 
     // Установление алгоритма ключа согласования
+    gettimeofday(&start, NULL);
     if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
        return HandleError("Error during CryptSetKeyParam agree key");
+    gettimeofday(&stop, NULL);
+    printf("CryptSetKeyParam: %lu\n", stop.tv_usec - start.tv_usec);
 
    //Расшифровываем сессионный ключ
-    if(!CryptImportKey(hProv, sessionKeySimpleBlob, sessionKeySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
+    gettimeofday(&start, NULL);
+    if(!CryptImportKey(hContainerProv, sessionKeySimpleBlob, sessionKeySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
         return HandleError("Error during CryptImportKey session key");
+    gettimeofday(&stop, NULL);
+    printf("CryptImportKey: %lu\n", stop.tv_usec - start.tv_usec);
 
+    gettimeofday(&start, NULL);
     if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
         return HandleError("Error during CryptSetKeyParam");
+    gettimeofday(&stop, NULL);
+    printf("CryptSetKeyParam: %lu\n", stop.tv_usec - start.tv_usec);
 
     BOOL bFinal = TRUE;
     bufLen = textToEncryptLength;
 
+    gettimeofday(&start, NULL);
     if(!CryptEncrypt(hSessionKey, 0, bFinal, 0, textToEncrypt, &textToEncryptLength, bufLen))
         return HandleError("Encryption failed");
+    gettimeofday(&stop, NULL);
+    printf("CryptEncrypt: %lu\n", stop.tv_usec - start.tv_usec);
 
+
+    gettimeofday(&start, NULL);
     free(pbIV);
     free(pbKeyBlobSimple);
     if(hAgreeKey)
@@ -415,9 +468,9 @@ EXPORT CallResult EncryptWithSessionKey(
        CryptDestroyKey(hSessionKey);
     if(hProv) 
         CryptReleaseContext(hProv, 0);
+    gettimeofday(&stop, NULL);
+    printf("Free: %lu\n", stop.tv_usec - start.tv_usec);
 
-//    gettimeofday(&stop, NULL);
-//    printf("EncryptWithSessionKey: %lu\n", stop.tv_usec - start.tv_usec);
 
     return ResultSuccess();
 }

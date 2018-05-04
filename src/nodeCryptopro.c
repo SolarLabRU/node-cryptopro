@@ -344,21 +344,30 @@ EXPORT CallResult Decrypt(
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
-   // Получение дескриптора контейнера получателя с именем "responderContainerName", находящегося в рамках провайдера
-    if(!CryptAcquireContext(&hProv, responderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0)) {
-       return HandleError("Error during CryptAcquireContext");
+    CallResult acquireResult;
+    
+    if( !keyContainerName || (keyContainerName && (strcmp(keyContainerName, responderContainerName) != 0)) ) {
+        acquireResult = AcquireContextForContainer(responderContainerName);
+        if(acquireResult.status != 0) {
+            return acquireResult;
+       }
     }
 
-    if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
+   // Получение дескриптора контейнера получателя с именем "responderContainerName", находящегося в рамках провайдера
+//    if(!CryptAcquireContext(&hProv, responderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0)) {
+//       return HandleError("Error during CryptAcquireContext");
+ //   }
+
+    if(!CryptGetUserKey(hContainerProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
 
-    if(!CryptImportKey(hProv, senderPublicKeyBlob, senderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
+    if(!CryptImportKey(hContainerProv, senderPublicKeyBlob, senderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
         return HandleError("Error during CryptImportKey public key");
 
     if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
         return HandleError("Error during CryptSetKeyParam agree key");
 
-    if(!CryptImportKey(hProv, keySimpleBlob, keySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
+    if(!CryptImportKey(hContainerProv, keySimpleBlob, keySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
         return HandleError("Error during CryptImportKey session key");
 
     if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
@@ -374,8 +383,8 @@ EXPORT CallResult Decrypt(
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
-    if(hProv) 
-        CryptReleaseContext(hProv, 0);
+//    if(hProv) 
+//        CryptReleaseContext(hProv, 0);
 
     return ResultSuccess();
 }

@@ -599,12 +599,17 @@ describe('Тесты', function () {
 	it('Дешифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {
 		const senderPublicKeyBlob = publicKeyBlob;
 
+    let timeInMs = Date.now();
+
 		let decryptedBytes = nodeCryptopro.decrypt(
 			encryptionResult2.encryptedBytesArray, 
 			responderContainerName,
 			senderPublicKeyBlob,
 			generatedSessionKey.IV,
 			generatedSessionKey.sessionKeyBlob);
+
+    timeInMs = Date.now() - timeInMs;
+    console.log('Время расшифровки = ', timeInMs + " мс");
 
 		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
 

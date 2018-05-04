@@ -20,13 +20,13 @@
 #include "nodeCryptopro.h"
 
 HCRYPTPROV hContainerProv = 0; // Дескриптор CSP
-const char* keyContainerName = NULL;
+char* keyContainerName = NULL;
 
 EXPORT CallResult AcquireContextForContainer(
     const char* keyContainer
 ) {
-    struct timeval stop, start;
-
+//    struct timeval stop, start;
+    
     // Получение дескриптора контекста криптографического провайдера
  //   gettimeofday(&start, NULL);
     if(!CryptAcquireContext( &hContainerProv, keyContainer, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/ 0))
@@ -408,15 +408,21 @@ EXPORT CallResult EncryptWithSessionKey(
 
     DWORD bufLen = 0;
     ALG_ID ke_alg = CALG_PRO_EXPORT;
-
-  //  if(!hContainerProv) {
+    
+    CallResult acquireResult;
+    
+    if( !keyContainerName || (keyContainerName && (strcmp(keyContainerName, senderContainerName) != 0)) ) {
+        acquireResult = AcquireContextForContainer(senderContainerName);
+        if(acquireResult.status != 0) {
+            return acquireResult;
+       }
+    }
         // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
 //        gettimeofday(&start, NULL);
-        if(!CryptAcquireContext(&hContainerProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
-           return HandleError("Error during CryptAcquireContext");
+ //       if(!CryptAcquireContext(&hContainerProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
+   //        return HandleError("Error during CryptAcquireContext");
+ 
   //      gettimeofday(&stop, NULL);
-    //    printf("CryptAcquireContext: %lu\n", stop.tv_usec - start.tv_usec);
-  //  }
     
     // Получение дескриптора закрытого ключа отправителя
   //  gettimeofday(&start, NULL);
@@ -469,8 +475,8 @@ EXPORT CallResult EncryptWithSessionKey(
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
-    if(hProv) 
-        CryptReleaseContext(hProv, 0);
+//    if(hProv) 
+//        CryptReleaseContext(hProv, 0);
 //    gettimeofday(&stop, NULL);
   //  printf("Free: %lu\n", stop.tv_usec - start.tv_usec);
 

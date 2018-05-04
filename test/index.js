@@ -26,7 +26,7 @@ describe('Тесты', function () {
 //	console.log('sourceMessage: ' + buffer.toString('hex'));
 
 	const hashForSourceMessage = new Uint8Array([82,181,47,23,1,228,41,72,41,214,88,194,195,191,190,222,223,73,66,111,196,65,133,235,206,122,89,171,160,130,48,90]);
-	console.log("hashForSourceMessage: " + Buffer.from(hashForSourceMessage).toString('hex'));
+//	console.log("hashForSourceMessage: " + Buffer.from(hashForSourceMessage).toString('hex'));
 
 	const publicKeyBytes = [144,129,142,86,169,62,26,195,207,130,70,122,105,84,35,108,162,39,114,195,205,130,86,214,24,187,179,50,178,170,134,15,82,165,222,213,0,31,89,235,98,208,30,89,111,242,79,159,234,213,149,143,34,11,145,117,195,31,87,82,221,2,83,139];
 //	console.log("publicKeyBytesHex: " + Buffer.from(publicKeyBytes).toString('hex'));
@@ -56,13 +56,13 @@ describe('Тесты', function () {
 		expect(publicKeyBlob).to.have.lengthOf(101);
 	});	
 
-	it('Загрузка публичного ключа из файла сертификата', async () => {
+/*	it('Загрузка публичного ключа из файла сертификата', async () => {
 		const certificateFilePath = './2012_Cert.cer';
 
 		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(certificateFilePath);
 
 		expect(publicKeyBlob).to.have.lengthOf(101);
-	});	
+	});	*/
 
 	it('Получение дескриптора контейнера', async () => {
 		const result = nodeCryptopro.acquireContextForContainer(senderContainerName);

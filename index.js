@@ -52,6 +52,15 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 });
 
 module.exports = {
+	/**
+	 * Получение дескриптора контекста криптографического провайдера для заданного ключевого контейнера.
+	 *
+	 * Получается и сохраняется дескриптор, который затем используется в функции encryptWithSessionKey()
+	 *
+	 * @param {String} containerName Имя ключевого контейнера
+	 *
+	 * @return {Boolean} Результат выполнения операции
+	 */
 	acquireContextForContainer: (containerName) => {
 		let result = cryptoLib.AcquireContextForContainer(containerName);
 
@@ -142,6 +151,24 @@ module.exports = {
 		}
 	},
 
+	/**
+	 * Шифрование по алгоритму ГОСТ 28147 на предвапрительно подготовленном на сессионном ключе.
+	 * 
+	 * Сессионный ключ предварительно получен с помощью функции generateSessionKey().
+	 *
+	 * Используется провайдер типа PROV_GOST_2012_256 и ключи алгоритма ГОСТ Р 34.10-2012 длины 256 бит (длина открытого ключа 512 бит).
+	 *
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___c_s_p_examples_4_0vs3_6.html
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___pro_c_s_p_key_1gd56b0fb8e9d9c0278e45eb1994c38161.html
+	 *
+	 * @param {Uint8Array} bytesArrayToEncrypt Исходные данные для шифрования
+	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
+	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
+	 * @param {Uint8Array} sessionKeySimpleBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
+	 * @param {Uint8Array} IV Вектор инициализации сессионного ключа
+	 *
+	 * @return {EncryptionResult}  
+	 */
 	encryptWithSessionKey: async (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV) => {
 
 		let encryptWithSessionKeyAsync = () => {
@@ -168,7 +195,9 @@ module.exports = {
 
 		return await encryptWithSessionKeyAsync();
 
-/*		let result = cryptoLib.EncryptWithSessionKey.async(
+/*		
+		//Асинхронный вариант
+		let result = cryptoLib.EncryptWithSessionKey.async(
 			sessionKeySimpleBlob, 
 			sessionKeySimpleBlob.length, 
 			senderContainerName,
@@ -313,6 +342,12 @@ module.exports = {
 		}
 	},
 
+	/**
+	 * Получение публичного ключа из файла сертификата
+	 *
+	 * @param {String} certificateFilePath Путь к файлу сертификата в формате .cer
+	 * @return {Uint8Array} Массив байтов публичного ключа
+	 */
 	GetPublicKeyFromCertificateFile: (certificateFilePath) => {
 		let publicKeyBlobLength = ref.alloc('int');
 		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
@@ -325,6 +360,13 @@ module.exports = {
 			return publicKeyBlob.subarray(0, publicKeyBlobLength.deref());
 		}
 	},
+
+	/**
+	 * Получение публичного ключа из ключевого контейнера
+	 *
+	 * @param {String} certificateSubjectKey Ключевое слово для поиска по полю subject ключевого контейнера или PIN контейнера
+	 * @return {Uint8Array} Массив байтов публичного ключа
+	 */
 	GetPublicKeyFromCertificate: (certificateSubjectKey) => {
 		let publicKeyBlobLength = ref.alloc('int');
 		let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );

@@ -1,6 +1,6 @@
 {
   "name": "node-cryptopro",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Node.js package to use Cryptopro.ru functionality",
   "main": "index.js",
   "directories": {

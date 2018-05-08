@@ -25,14 +25,10 @@ char* keyContainerName = NULL;
 EXPORT CallResult AcquireContextForContainer(
     const char* keyContainer
 ) {
-//    struct timeval stop, start;
     
     // Получение дескриптора контекста криптографического провайдера
- //   gettimeofday(&start, NULL);
     if(!CryptAcquireContext( &hContainerProv, keyContainer, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/ 0))
         return HandleError("Error during CryptAcquireContext");
- //   gettimeofday(&stop, NULL);
-  //  printf("AcquireContextForContainer: %lu\n", stop.tv_usec - start.tv_usec);
 
     if(keyContainerName)
         free(keyContainerName);
@@ -323,6 +319,8 @@ EXPORT CallResult Encrypt(
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
+    if(hKey)
+       CryptDestroyKey(hKey);
     if(hProv) 
         CryptReleaseContext(hProv, 0);
 
@@ -337,7 +335,6 @@ EXPORT CallResult Decrypt(
     BYTE* IV, int IVLength,
     BYTE* keySimpleBlob, int keySimpleBlobLength
 ) {
-    HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
@@ -352,11 +349,6 @@ EXPORT CallResult Decrypt(
             return acquireResult;
        }
     }
-
-   // Получение дескриптора контейнера получателя с именем "responderContainerName", находящегося в рамках провайдера
-//    if(!CryptAcquireContext(&hProv, responderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0)) {
-//       return HandleError("Error during CryptAcquireContext");
- //   }
 
     if(!CryptGetUserKey(hContainerProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
@@ -383,8 +375,8 @@ EXPORT CallResult Decrypt(
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
-//    if(hProv) 
-//        CryptReleaseContext(hProv, 0);
+    if(hKey)
+       CryptDestroyKey(hKey);
 
     return ResultSuccess();
 }
@@ -398,22 +390,9 @@ EXPORT CallResult EncryptWithSessionKey(
     BYTE* IV, 
     int IVLength
 ) {
-//    struct timeval stop, start;
-//    gettimeofday(&start, NULL);
-    SYSTEMTIME start, end;
-    GetSystemTime(&start);
-    LONG start_ms = (start.wSecond * 1000) + start.wMilliseconds;
-
-    HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
-
-    BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
-    DWORD dwBlobLenSimple;
-
-    BYTE *pbIV = NULL;      // Вектор инициализации сессионного ключа
-    DWORD dwIV = 0;
 
     DWORD bufLen = 0;
     ALG_ID ke_alg = CALG_PRO_EXPORT;
@@ -426,75 +405,38 @@ EXPORT CallResult EncryptWithSessionKey(
             return acquireResult;
        }
     }
-        // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
-//        gettimeofday(&start, NULL);
- //       if(!CryptAcquireContext(&hContainerProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
-   //        return HandleError("Error during CryptAcquireContext");
- 
-  //      gettimeofday(&stop, NULL);
-    
+
     // Получение дескриптора закрытого ключа отправителя
-  //  gettimeofday(&start, NULL);
     if(!CryptGetUserKey(hContainerProv, AT_KEYEXCHANGE, &hKey))
         return HandleError("Error during CryptGetUserKey private key");
-   // gettimeofday(&stop, NULL);
-    //printf("CryptGetUserKey: %lu\n", stop.tv_usec - start.tv_usec);
 
     // Получение ключа согласования импортом открытого ключа получателя на закрытом ключе отправителя
-//    gettimeofday(&start, NULL);
     if(!CryptImportKey(hContainerProv, responderPublicKeyBlob, responderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
        return HandleError("Error during CryptImportKey public key");
-  //  gettimeofday(&stop, NULL);
-   // printf("CryptImportKey: %lu\n", stop.tv_usec - start.tv_usec);
 
     // Установление алгоритма ключа согласования
-//    gettimeofday(&start, NULL);
     if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
        return HandleError("Error during CryptSetKeyParam agree key");
-  //  gettimeofday(&stop, NULL);
-    //printf("CryptSetKeyParam: %lu\n", stop.tv_usec - start.tv_usec);
 
    //Расшифровываем сессионный ключ
-//    gettimeofday(&start, NULL);
     if(!CryptImportKey(hContainerProv, sessionKeySimpleBlob, sessionKeySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
         return HandleError("Error during CryptImportKey session key");
-  //  gettimeofday(&stop, NULL);
-   // printf("CryptImportKey: %lu\n", stop.tv_usec - start.tv_usec);
 
-//    gettimeofday(&start, NULL);
     if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
         return HandleError("Error during CryptSetKeyParam");
-  //  gettimeofday(&stop, NULL);
-   // printf("CryptSetKeyParam: %lu\n", stop.tv_usec - start.tv_usec);
 
     BOOL bFinal = TRUE;
     bufLen = textToEncryptLength;
 
-//    gettimeofday(&start, NULL);
     if(!CryptEncrypt(hSessionKey, 0, bFinal, 0, textToEncrypt, &textToEncryptLength, bufLen))
         return HandleError("Encryption failed");
-  //  gettimeofday(&stop, NULL);
-   // printf("CryptEncrypt: %lu\n", stop.tv_usec - start.tv_usec);
 
-
-//    gettimeofday(&start, NULL);
-    free(pbIV);
-    free(pbKeyBlobSimple);
     if(hAgreeKey)
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
-//    if(hProv) 
-//        CryptReleaseContext(hProv, 0);
-//    gettimeofday(&stop, NULL);
-  //  printf("Free: %lu\n", stop.tv_usec - start.tv_usec);
-
-    GetSystemTime(&end);
-    LONG end_ms = (end.wSecond * 1000) + end.wMilliseconds - start_ms;
-    printf("Time: %d\n", end_ms);
-
-//    gettimeofday(&stop, NULL);
-//    printf("EncryptWithSessionKey: %lu\n", stop.tv_usec - start.tv_usec);
+    if(hKey)
+       CryptDestroyKey(hKey);
 
     return ResultSuccess();
 }
@@ -515,9 +457,6 @@ EXPORT CallResult RecodeSessionKey(
 
     BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
     DWORD dwBlobLenSimple;
-
-    BYTE *pbNewKeyBlobSimple = NULL; 
-//    DWORD dwNewBlobLenSimple;
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
 
@@ -574,6 +513,8 @@ EXPORT CallResult RecodeSessionKey(
        CryptDestroyKey(hSessionKey);
     if(hProv) 
         CryptReleaseContext(hProv, 0);
+    if(hKey)
+       CryptDestroyKey(hKey);
 
     return ResultSuccess();
 }
@@ -658,6 +599,8 @@ EXPORT CallResult GenerateSessionKey(
        CryptDestroyKey(hAgreeKey);
     if(hSessionKey)
        CryptDestroyKey(hSessionKey);
+    if(hKey)
+       CryptDestroyKey(hKey);
     if(hProv) 
         CryptReleaseContext(hProv, 0);
 
@@ -761,7 +704,7 @@ CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlob
     BYTE *pbKeyBlob = NULL;    // Указатель на ключевой BLOB
     DWORD dwKeyBlobLen;       // Длина ключевого BLOBа получателя
     
-    DWORD dwKeySpecSender;
+//    DWORD dwKeySpecSender;
 
     // Открытие системного хранилища сертификатов.
     hStoreHandle = CertOpenSystemStore(0, "MY");

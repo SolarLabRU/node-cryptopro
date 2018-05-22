@@ -96,6 +96,15 @@ EXPORT CallResult RecodeSessionKey(
     BYTE* IV, int IVLength
 );
 
+EXPORT CallResult RecodeSessionKeyForNewContainer(
+    BYTE* sessionKeySimpleBlob, DWORD sessionKeySimpleBlobLength,
+    const char* oldContainerName, 
+    const char* newContainerName, 
+    BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
+    BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
+    BYTE* IV, int IVLength
+);
+
 EXPORT CallResult Decrypt(
     const char* responderContainerName,
     BYTE* senderPublicKeyBlob,

@@ -48,7 +48,8 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
-	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
+	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
+	'RecodeSessionKeyForNewContainer': [CallResult, [ref.refType('byte'), 'int', 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
 });
 
 module.exports = {
@@ -453,5 +454,44 @@ module.exports = {
 				IV: IV.subarray(0, IV.length)
 			};
 		}
+	},
+	/**
+	 * Перешифрование сессионного ключа со сменой ключевого контейнера
+	 * 
+	 * Сессионный ключ шифруется на ключе согласования по алгоритму CALG_PRO_EXPORT и экспортируется в формате SIMPLEBLOB.
+	 * Ключ согласования получается импортом открытого ключа получателя на закрытом ключе отправителя.
+	 *
+	 * Используется провайдер типа PROV_GOST_2012_256 и ключи алгоритма ГОСТ Р 34.10-2012 длины 256 бит (длина открытого ключа 512 бит).
+	 *
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___c_s_p_examples_4_0vs3_6.html
+	 * https://cpdn.cryptopro.ru/content/csp40/html/group___pro_c_s_p_key_1gd56b0fb8e9d9c0278e45eb1994c38161.html
+	 *
+	 * @param {Uint8Array} sessionKeySimpleBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
+	 * @param {String} oldSenderContainerName Имя контейнера, содержащего закрытый ключ отправителя до перешифрования
+	 * @param {String} newSenderContainerName Имя нового контейнера, содержащего закрытый ключ отправителя
+	 * @param {Uint8Array} oldResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого зашифрован сессионный ключ
+	 * @param {Uint8Array} newResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого будет перешифрован сессионный ключ
+	 *
+	 * @return {EncryptedSessionKey}  
+	 */	
+	recodeSessionKeyForNewContainer: (sessionKeySimpleBlob, IV, oldSenderContainerName, newSenderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob) => {
+		let result = cryptoLib.RecodeSessionKeyForNewContainer(
+			sessionKeySimpleBlob, sessionKeySimpleBlob.length,
+			oldSenderContainerName,
+			newSenderContainerName,
+			oldResponderPublicKeyBlob, oldResponderPublicKeyBlob.length,
+			newResponderPublicKeyBlob, newResponderPublicKeyBlob.length,
+			IV, IV.length
+		);
+
+		if(result.status) {
+			throw new Error(result.errorMessage);
+		} else {
+			return {
+				sessionKeyBlob: sessionKeySimpleBlob.subarray(0, sessionKeySimpleBlob.length),
+				IV: IV.subarray(0, IV.length)
+			};
+		}
 	}
+
 };

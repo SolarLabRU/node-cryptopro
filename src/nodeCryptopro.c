@@ -519,6 +519,97 @@ EXPORT CallResult RecodeSessionKey(
     return ResultSuccess();
 }
 
+EXPORT CallResult RecodeSessionKeyForNewContainer(
+    BYTE* sessionKeySimpleBlob, DWORD sessionKeySimpleBlobLength,
+    const char* oldContainerName, 
+    const char* newContainerName, 
+    BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
+    BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
+    BYTE* IV, int IVLength
+) {
+    HCRYPTPROV hProv = 0; // Дескриптор CSP
+    HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
+    HCRYPTPROV hProvNew = 0; // Дескриптор CSP
+    HCRYPTKEY hKeyNew = 0;     // Дескриптор закрытого ключа
+
+    HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
+    HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
+    HCRYPTKEY hAgreeKey2 = 0; 
+
+    BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
+    DWORD dwBlobLenSimple;
+
+    ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    // Получение дескриптора контейнера с именем senderContainerName, находящегося в рамках провайдера
+    if(!CryptAcquireContext(&hProv, oldContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
+       return HandleError("Error during CryptAcquireContext");
+    if(!CryptAcquireContext(&hProvNew, newContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
+       return HandleError("Error during CryptAcquireContext");
+
+
+    // Получение дескриптора закрытого ключа отправителя
+    if(!CryptGetUserKey(hProv, AT_KEYEXCHANGE, &hKey))
+        return HandleError("Error during CryptGetUserKey private key");
+    if(!CryptGetUserKey(hProvNew, AT_KEYEXCHANGE, &hKeyNew))
+        return HandleError("Error during CryptGetUserKey private key");
+
+    // Получение ключа согласования импортом открытого ключа получателя на закрытом ключе отправителя
+    if(!CryptImportKey(hProv, oldResponderPublicKeyBlob, oldResponderPublicKeyBlobLength, hKey, 0, &hAgreeKey))
+       return HandleError("Error during CryptImportKey public key");
+    if(!CryptImportKey(hProvNew, newResponderPublicKeyBlob, newResponderPublicKeyBlobLength, hKeyNew, 0, &hAgreeKey2))
+       return HandleError("Error during CryptImportKey public key");
+
+    // Установление алгоритма ключа согласования
+    if(!CryptSetKeyParam(hAgreeKey, KP_ALGID, (LPBYTE)&ke_alg, 0))
+       return HandleError("Error during CryptSetKeyParam agree key");
+    if(!CryptSetKeyParam(hAgreeKey2, KP_ALGID, (LPBYTE)&ke_alg, 0))
+       return HandleError("Error during CryptSetKeyParam agree key");
+
+   //Расшифровываем сессионный ключ
+    if(!CryptImportKey(hProv, sessionKeySimpleBlob, sessionKeySimpleBlobLength, hAgreeKey, CRYPT_EXPORTABLE, &hSessionKey))
+        return HandleError("Error during CryptImportKey session key");
+    
+    if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
+        return HandleError("Error during CryptSetKeyParam");
+
+    // Определение размера BLOBа сессионного ключа и распределение памяти
+    if(!CryptExportKey( hSessionKey, hAgreeKey2, SIMPLEBLOB, 0, NULL, &dwBlobLenSimple))
+       return HandleError("Error computing BLOB length");
+
+    pbKeyBlobSimple = (BYTE*)malloc(dwBlobLenSimple);
+
+    if(!pbKeyBlobSimple) 
+       return HandleError("Out of memory");
+
+    // Зашифрование сессионного ключа на ключе Agree, экспорт в pbKeyBlobSimple
+    if(!CryptExportKey(hSessionKey, hAgreeKey2, SIMPLEBLOB, 0, pbKeyBlobSimple, &dwBlobLenSimple))
+        return HandleError("Error during CryptExportKey");
+
+    memcpy(sessionKeySimpleBlob, pbKeyBlobSimple, sessionKeySimpleBlobLength);
+//    memcpy(sessionKeyBlobLength, &dwBlobLenSimple, sizeof(dwBlobLenSimple));
+
+    free(pbKeyBlobSimple);
+    if(hAgreeKey)
+       CryptDestroyKey(hAgreeKey);
+    if(hAgreeKey2)
+       CryptDestroyKey(hAgreeKey2);
+
+    if(hSessionKey)
+       CryptDestroyKey(hSessionKey);
+    if(hProv) 
+        CryptReleaseContext(hProv, 0);
+    if(hProvNew) 
+        CryptReleaseContext(hProvNew, 0);
+
+    if(hKey)
+       CryptDestroyKey(hKey);
+    if(hKeyNew)
+       CryptDestroyKey(hKey);
+
+    return ResultSuccess();
+}
+
 EXPORT CallResult GenerateSessionKey(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 

@@ -169,7 +169,7 @@ describe('Тесты', function () {
 		generatedSessionKey = nodeCryptopro.generateSessionKey(senderContainerName, responderPublicKeyBlob);
 		
 		time = Date.now() - time;
-		console.log('Время генерации сессионного ключа = ', time + " мс");
+//		console.log('Время генерации сессионного ключа = ', time + " мс");
 
 		let messageJSON = {
 		  "data": {
@@ -583,7 +583,7 @@ describe('Тесты', function () {
 		);
 
 		timeInMs = Date.now() - timeInMs;
-		console.log('Время шифрования = ', timeInMs + " мс");
+//		console.log('Время шифрования = ', timeInMs + " мс");
 
 		expect(encryptionResult2.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 	});
@@ -601,7 +601,7 @@ describe('Тесты', function () {
 			generatedSessionKey.sessionKeyBlob);
 
     timeInMs = Date.now() - timeInMs;
-    console.log('Время расшифровки = ', timeInMs + " мс");
+//    console.log('Время расшифровки = ', timeInMs + " мс");
 
 		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
 
@@ -623,6 +623,26 @@ describe('Тесты', function () {
 
 		expect(1).to.equal(1);
 	});
+
+	it('Перекодирование сессионного ключа со сменой ключевого контейнера', async () => {
+		const oldResponderPublicKeyBlob = publicKeyBlob;
+		const newResponderPublicKeyBlob = publicKeyBlob;
+		const oldSenderContainerName = senderContainerName;
+		const newSenderContainerName = senderContainerName;
+
+		let generatedSessionKey2 = nodeCryptopro.generateSessionKey(oldSenderContainerName, oldResponderPublicKeyBlob);
+
+		let result = nodeCryptopro.recodeSessionKeyForNewContainer(
+			generatedSessionKey2.sessionKeyBlob, 
+			generatedSessionKey2.IV, 
+			oldSenderContainerName,
+			newSenderContainerName, 
+			oldResponderPublicKeyBlob, 
+			newResponderPublicKeyBlob);
+
+		expect(1).to.equal(1);
+	});
+
 
 	it('Генерация сессионного ключа', async () => {
 		const sessionKey = nodeCryptopro.generateSessionKey(senderContainerName, publicKeyBlob);

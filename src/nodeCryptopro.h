@@ -34,7 +34,8 @@ EXPORT CallResult GenerateSessionKey(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 
     BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
-    BYTE* IV, DWORD* IVLength
+    BYTE* IV, DWORD* IVLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult SignHash(
@@ -75,7 +76,8 @@ EXPORT CallResult Encrypt(
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
-    DWORD* IVLength
+    DWORD* IVLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult EncryptWithSessionKey(
@@ -85,7 +87,8 @@ EXPORT CallResult EncryptWithSessionKey(
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
-    int IVLength
+    int IVLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult RecodeSessionKey(
@@ -93,7 +96,8 @@ EXPORT CallResult RecodeSessionKey(
     const char* senderContainerName, 
     BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
     BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
-    BYTE* IV, int IVLength
+    BYTE* IV, int IVLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult RecodeSessionKeyForNewContainer(
@@ -102,7 +106,8 @@ EXPORT CallResult RecodeSessionKeyForNewContainer(
     const char* newContainerName, 
     BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
     BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
-    BYTE* IV, int IVLength
+    BYTE* IV, int IVLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult Decrypt(
@@ -111,7 +116,8 @@ EXPORT CallResult Decrypt(
     int senderPublicKeyBlobLength,
     BYTE* encryptedText, int encryptedTextLength,
     BYTE* IV, int IVLength,
-    BYTE* keySimpleBlob, int keySimpleBlobLength
+    BYTE* keySimpleBlob, int keySimpleBlobLength,
+    const char* sessionKeyExportAlg
 );
 
 EXPORT CallResult CreateHash(BYTE* bytesArrayToHash, DWORD bytesArrayToHashLength, BYTE* hash, DWORD* hashLength);

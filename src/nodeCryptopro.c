@@ -236,7 +236,8 @@ EXPORT CallResult Encrypt(
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
-    DWORD* IVLength
+    DWORD* IVLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -250,7 +251,11 @@ EXPORT CallResult Encrypt(
     DWORD dwIV = 0;
 
     DWORD bufLen = 0;
+
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -333,13 +338,17 @@ EXPORT CallResult Decrypt(
     int senderPublicKeyBlobLength,
     BYTE* encryptedText, int encryptedTextLength,
     BYTE* IV, int IVLength,
-    BYTE* keySimpleBlob, int keySimpleBlobLength
+    BYTE* keySimpleBlob, int keySimpleBlobLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
 
     CallResult acquireResult;
     
@@ -388,14 +397,20 @@ EXPORT CallResult EncryptWithSessionKey(
     BYTE* textToEncrypt, 
     int textToEncryptLength, 
     BYTE* IV, 
-    int IVLength
+    int IVLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
 
     DWORD bufLen = 0;
+
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
+
     
     CallResult acquireResult;
     
@@ -446,7 +461,8 @@ EXPORT CallResult RecodeSessionKey(
     const char* senderContainerName, 
     BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
     BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
-    BYTE* IV, int IVLength
+    BYTE* IV, int IVLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -459,6 +475,9 @@ EXPORT CallResult RecodeSessionKey(
     DWORD dwBlobLenSimple;
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -525,7 +544,8 @@ EXPORT CallResult RecodeSessionKeyForNewContainer(
     const char* newContainerName, 
     BYTE* oldResponderPublicKeyBlob, int oldResponderPublicKeyBlobLength,
     BYTE* newResponderPublicKeyBlob, int newResponderPublicKeyBlobLength,
-    BYTE* IV, int IVLength
+    BYTE* IV, int IVLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -540,6 +560,9 @@ EXPORT CallResult RecodeSessionKeyForNewContainer(
     DWORD dwBlobLenSimple;
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, oldContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -614,7 +637,8 @@ EXPORT CallResult GenerateSessionKey(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 
     BYTE* responderPublicKeyBlob, int responderPublicKeyBlobLength,
-    BYTE* IV, DWORD* IVLength
+    BYTE* IV, DWORD* IVLength,
+    const char* sessionKeyExportAlg
 ) {
     HCRYPTPROV hProv = 0; // Дескриптор CSP
     HCRYPTKEY hKey = 0;     // Дескриптор закрытого ключа
@@ -628,6 +652,9 @@ EXPORT CallResult GenerateSessionKey(
     DWORD dwIV = 0;
 
     ALG_ID ke_alg = CALG_PRO_EXPORT;
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))

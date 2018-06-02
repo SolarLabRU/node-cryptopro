@@ -38,18 +38,18 @@ var CallResult = Struct({
 const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'AcquireContextForContainer': [CallResult, ['string']],
 	'CreateHash': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
-	'EncryptWithSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
-	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
-	'GenerateSessionKey': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
+	'Encrypt': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int'), 'string']],
+	'EncryptWithSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', 'string']],
+	'Decrypt': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', 'string']],
+	'GenerateSessionKey': [CallResult, [ref.refType('int'), ref.refType('byte'), 'string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int'), 'string']],
 	'SignHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
-	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
-	'RecodeSessionKeyForNewContainer': [CallResult, [ref.refType('byte'), 'int', 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']]
+	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', 'string']],
+	'RecodeSessionKeyForNewContainer': [CallResult, [ref.refType('byte'), 'int', 'string', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', 'string']]
 });
 
 module.exports = {
@@ -123,10 +123,11 @@ module.exports = {
 	 * @param {Uint8Array} bytesArrayToEncrypt Исходные данные для шифрования
 	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
 	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {EncryptionResult}  
 	 */
-	encrypt: (bytesArrayToEncrypt, senderContainerName, responderPublicKey) => {
+	encrypt: (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
 		let IVLength = ref.alloc('int');
 
@@ -139,7 +140,8 @@ module.exports = {
 			senderContainerName,
 			responderPublicKey, responderPublicKey.length,
 			bytesArrayToEncrypt, bytesArrayToEncrypt.length, 
-			IV, IVLength
+			IV, IVLength,
+			sessionKeyExportAlgorithm
 		);
 		if(result.status) {
 			throw new Error(result.errorMessage);
@@ -167,10 +169,11 @@ module.exports = {
 	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
 	 * @param {Uint8Array} sessionKeySimpleBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
 	 * @param {Uint8Array} IV Вектор инициализации сессионного ключа
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {EncryptionResult}  
 	 */
-	encryptWithSessionKey: async (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV) => {
+	encryptWithSessionKey: async (bytesArrayToEncrypt, senderContainerName, responderPublicKey, sessionKeySimpleBlob, IV, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 
 		let encryptWithSessionKeyAsync = () => {
 			return new Promise( (resolve, reject) => {
@@ -181,6 +184,7 @@ module.exports = {
 					responderPublicKey, responderPublicKey.length,
 					bytesArrayToEncrypt, bytesArrayToEncrypt.length, 
 					IV, IV.length,
+					sessionKeyExportAlgorithm,
 					(err, res) => {
 						if(err) 
 							reject(err);
@@ -226,10 +230,11 @@ module.exports = {
 	 * @param {Uint8Array} senderPublicKey Публичный ключ отправителя (PUBLICKEYBLOB)
 	 * @param {Uint8Array} IV Вектор инициализации сессионного ключа
 	 * @param {Uint8Array} keyBlob Зашифрованный сессионный ключ в формате SIMPLEBLOB
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {Uint8Array} Массив байтов расшифрованного сообщения
 	 */
-	decrypt: (encryptedBytes, responderContainerName, senderPublicKey, IV, keyBlob) => {
+	decrypt: (encryptedBytes, responderContainerName, senderPublicKey, IV, keyBlob, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 		let result = cryptoLib.Decrypt(
 			responderContainerName,
 			senderPublicKey, senderPublicKey.length,
@@ -238,7 +243,8 @@ module.exports = {
 			IV, 
 			IV.length,
 			keyBlob,
-			keyBlob.length
+			keyBlob.length,
+			sessionKeyExportAlgorithm
 		);
 		
 		if(result.status) {
@@ -393,10 +399,11 @@ module.exports = {
 	 *
 	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
 	 * @param {Uint8Array} responderPublicKey Публичный ключ получателя (PUBLICKEYBLOB)
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {EncryptedSessionKey}  
 	 */
-	generateSessionKey: (senderContainerName, responderPublicKey) => {
+	generateSessionKey: (senderContainerName, responderPublicKey, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 		let IV = new Uint8Array(SEANCE_VECTOR_LEN);
 		let IVLength = ref.alloc('int');
 
@@ -408,7 +415,8 @@ module.exports = {
 			sessionKeyBlob, 
 			senderContainerName,
 			responderPublicKey, responderPublicKey.length,
-			IV, IVLength
+			IV, IVLength,
+			sessionKeyExportAlgorithm
 		);
 		if(result.status) {
 			throw new Error(result.errorMessage);
@@ -434,16 +442,18 @@ module.exports = {
 	 * @param {String} senderContainerName Имя контейнера, содержащего закрытый ключ отправителя
 	 * @param {Uint8Array} oldResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого зашифрован сессионный ключ
 	 * @param {Uint8Array} newResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого будет перешифрован сессионный ключ
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {EncryptedSessionKey}  
 	 */	
-	recodeSessionKey: (sessionKeySimpleBlob, IV, senderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob) => {
+	recodeSessionKey: (sessionKeySimpleBlob, IV, senderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 		let result = cryptoLib.RecodeSessionKey(
 			sessionKeySimpleBlob, sessionKeySimpleBlob.length,
 			senderContainerName,
 			oldResponderPublicKeyBlob, oldResponderPublicKeyBlob.length,
 			newResponderPublicKeyBlob, newResponderPublicKeyBlob.length,
-			IV, IV.length
+			IV, IV.length,
+			sessionKeyExportAlgorithm
 		);
 
 		if(result.status) {
@@ -471,17 +481,19 @@ module.exports = {
 	 * @param {String} newSenderContainerName Имя нового контейнера, содержащего закрытый ключ отправителя
 	 * @param {Uint8Array} oldResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого зашифрован сессионный ключ
 	 * @param {Uint8Array} newResponderPublicKeyBlob Публичный ключ получателя (PUBLICKEYBLOB), для которого будет перешифрован сессионный ключ
+	 * @param {String} sessionKeyExportAlgorithm Алгоритм экспорта сессионного ключа: CALG_PRO_EXPORT или CALG12_PRO_EXPORT
 	 *
 	 * @return {EncryptedSessionKey}  
 	 */	
-	recodeSessionKeyForNewContainer: (sessionKeySimpleBlob, IV, oldSenderContainerName, newSenderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob) => {
+	recodeSessionKeyForNewContainer: (sessionKeySimpleBlob, IV, oldSenderContainerName, newSenderContainerName, oldResponderPublicKeyBlob, newResponderPublicKeyBlob, sessionKeyExportAlgorithm = "CALG_PRO_EXPORT") => {
 		let result = cryptoLib.RecodeSessionKeyForNewContainer(
 			sessionKeySimpleBlob, sessionKeySimpleBlob.length,
 			oldSenderContainerName,
 			newSenderContainerName,
 			oldResponderPublicKeyBlob, oldResponderPublicKeyBlob.length,
 			newResponderPublicKeyBlob, newResponderPublicKeyBlob.length,
-			IV, IV.length
+			IV, IV.length,
+			sessionKeyExportAlgorithm
 		);
 
 		if(result.status) {

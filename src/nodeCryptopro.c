@@ -249,8 +249,11 @@ EXPORT CallResult Encrypt(
     BYTE *pbIV = NULL;      // Вектор инициализации сессионного ключа
     DWORD dwIV = 0;
 
+    BYTE *pbCIPHER = NULL;      // 
+    DWORD dwCIPHER = 0;
+
     DWORD bufLen = 0;
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
+    ALG_ID ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -288,6 +291,18 @@ EXPORT CallResult Encrypt(
     // Зашифрование сессионного ключа на ключе Agree, экспорт в pbKeyBlobSimple
     if(!CryptExportKey(hSessionKey, hAgreeKey, SIMPLEBLOB, 0, pbKeyBlobSimple, &dwBlobLenSimple))
         return HandleError("Error during CryptExportKey");
+
+    if(!CryptGetKeyParam(hAgreeKey, KP_CIPHEROID, NULL, &dwCIPHER, 0))
+       return HandleError("Error computing KP_CIPHEROID length");
+
+    pbCIPHER = (BYTE*)malloc(dwCIPHER);
+    if (!pbCIPHER)
+       return HandleError("Out of memory");
+
+    if(!CryptGetKeyParam(hAgreeKey, KP_CIPHEROID, pbCIPHER, &dwCIPHER, 0))
+       return HandleError("Error computing KP_CIPHEROID length");
+
+printf("KP_CIPHEROID: %s\n", pbCIPHER);
 
     // Определение размера вектора инициализации сессионного ключа
     if(!CryptGetKeyParam(hSessionKey, KP_IV, NULL, &dwIV, 0))

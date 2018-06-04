@@ -5,16 +5,16 @@ const expect = require('chai').expect;
 const nodeCryptopro = require('../index');
 
 //Имя контейнера с ключами отправителя
-const senderContainerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+const senderContainerName = "55298654e-d073-f75e-9368-0847d712bb2";// "5973e5bc6-1e43-6206-c603-21fdd08867e";
 
 //Путь к файлу с сертификатом открытого ключа отправителя
-const senderCertFilename = "2012_Cert.cer";
+const senderCertFilename = "./55298654e-d073-f75e-9368-0847d712bb2.cer";// "2012_Cert.cer";
 
 //Имя контейнера с ключами получателя
 const responderContainerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
 
 //Путь к файлу с сертификатом открытого ключа получателя
-const responderCertFilename =  "2012_Cert.cer";
+const responderCertFilename =  "./2012_Cert.cer";
 
 
 describe('Тесты', function () {
@@ -31,7 +31,7 @@ describe('Тесты', function () {
 	const publicKeyBytes = [144,129,142,86,169,62,26,195,207,130,70,122,105,84,35,108,162,39,114,195,205,130,86,214,24,187,179,50,178,170,134,15,82,165,222,213,0,31,89,235,98,208,30,89,111,242,79,159,234,213,149,143,34,11,145,117,195,31,87,82,221,2,83,139];
 //	console.log("publicKeyBytesHex: " + Buffer.from(publicKeyBytes).toString('hex'));
 
-	const certificateSubjectKey = 'NewCert2012';
+	const certificateSubjectKey = "Tokarev2012_3";// 'NewCert2012';
 
 	let hashSignatureForSourceMessage = "";
 
@@ -57,7 +57,7 @@ describe('Тесты', function () {
 	});	
 
 	it('Загрузка публичного ключа из файла сертификата', async () => {
-		const certificateFilePath = './2012_Cert.cer';
+		const certificateFilePath = './55298654e-d073-f75e-9368-0847d712bb2.cer';
 
 		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(certificateFilePath);
 
@@ -138,8 +138,16 @@ describe('Тесты', function () {
 	});
 
 	it('Шифрование сообщения по алгоритму ГОСТ 28147', async () => {
-		const responderPublicKeyBlob = publicKeyBlob;
-		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, responderPublicKeyBlob);
+		const responderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile("./2012_Cert.cer");
+		const senderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile("./2012_Cert.cer");
+
+		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, "5973e5bc6-1e43-6206-c603-21fdd08867e", responderPublicKeyBlob);
+
+console.log("encryptedBytesArray: " + Buffer.from(encryptionResult.encryptedBytesArray).toString('hex'));
+console.log("sessionKeyBlob: " + Buffer.from(encryptionResult.sessionKeyBlob).toString('hex'));
+console.log("IV: " + Buffer.from(encryptionResult.IV).toString('hex'));
+console.log("sender pk: " + Buffer.from(senderPublicKeyBlob).toString('hex'));
+console.log("responder pk: " + Buffer.from(responderPublicKeyBlob).toString('hex'));
 
 		expect(encryptionResult.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 		expect(encryptionResult.sessionKeyBlob).to.have.lengthOf(73);
@@ -147,7 +155,7 @@ describe('Тесты', function () {
 	});
 
 	it('Дешифрование сообщения по алгоритму ГОСТ 28147', async () => {
-		const senderPublicKeyBlob = publicKeyBlob;
+		const senderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(senderCertFilename);
 
 		let decryptedBytes = nodeCryptopro.decrypt(
 			encryptionResult.encryptedBytesArray, 
@@ -162,7 +170,7 @@ describe('Тесты', function () {
 	});
 
 	it('Шифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {
-		const responderPublicKeyBlob = publicKeyBlob;
+		const responderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(responderCertFilename);
 
 		let time = Date.now();
 
@@ -589,7 +597,7 @@ describe('Тесты', function () {
 	});
 
 	it('Дешифрование сообщения по алгоритму ГОСТ 28147 на готовом сессионном ключе', async () => {
-		const senderPublicKeyBlob = publicKeyBlob;
+		const senderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(senderCertFilename);
 
     let timeInMs = Date.now();
 
@@ -609,8 +617,8 @@ describe('Тесты', function () {
 	});
 
 	it('Перекодирование сессионного ключа', async () => {
-		const oldResponderPublicKeyBlob = publicKeyBlob;
-		const newResponderPublicKeyBlob = publicKeyBlob;
+		const oldResponderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(responderCertFilename);
+		const newResponderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(senderCertFilename);
 
 		let generatedSessionKey2 = nodeCryptopro.generateSessionKey(senderContainerName, oldResponderPublicKeyBlob);
 
@@ -620,6 +628,13 @@ describe('Тесты', function () {
 			senderContainerName, 
 			oldResponderPublicKeyBlob, 
 			newResponderPublicKeyBlob);
+
+		let result2 = nodeCryptopro.recodeSessionKey(
+			result.sessionKeyBlob, 
+			result.IV, 
+			senderContainerName, 
+			newResponderPublicKeyBlob,
+			oldResponderPublicKeyBlob);
 
 		expect(1).to.equal(1);
 	});
@@ -650,5 +665,129 @@ describe('Тесты', function () {
 		expect(sessionKey.sessionKeyBlob).to.have.lengthOf(73);
 		expect(sessionKey.IV).to.have.lengthOf(8);
 	});
+
+
+	it('Шифрование и дешифрование сообщения с перекодированием сессионного ключа', async () => {
+		const nodePublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(senderCertFilename);
+		const nodeContainerName = senderContainerName;
+
+		const clientPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(responderCertFilename);
+		const clientContainerName = responderContainerName;
+
+		generatedSessionKey = nodeCryptopro.generateSessionKey(nodeContainerName, nodePublicKeyBlob);
+		
+		encryptionResult2 = await nodeCryptopro.encryptWithSessionKey(
+			sourceMessageBytes, 
+			nodeContainerName, 
+			nodePublicKeyBlob, 
+			generatedSessionKey.sessionKeyBlob, 
+			generatedSessionKey.IV
+		);
+
+		let recodedSessionKey = nodeCryptopro.recodeSessionKey(
+			generatedSessionKey.sessionKeyBlob, 
+			generatedSessionKey.IV, 
+			nodeContainerName, 
+			nodePublicKeyBlob, 
+			clientPublicKeyBlob);
+
+/*		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptionResult2.encryptedBytesArray, 
+			nodeContainerName,
+			clientPublicKeyBlob,
+			recodedSessionKey.IV,
+			recodedSessionKey.sessionKeyBlob);*/
+
+		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptionResult2.encryptedBytesArray, 
+			clientContainerName,
+			nodePublicKeyBlob,
+			recodedSessionKey.IV,
+			recodedSessionKey.sessionKeyBlob);
+
+
+		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
+
+
+		expect(decryptedMessage).to.equal(sourceMessage);
+	});
+
+	it('Дешифрование сообщения от КриптоПро Browser Plugin', async () => {
+		const containerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+		
+		const KP_CIPHEROID = "312E322E3634332E372E312E322E352E312E3100";
+		const pkBlob = new Uint8Array( Buffer.from("0A200000492E00004D41473100020000301306072A85030202240006082A85030701010202DD21D6091C833DE98DBF48A1CA95C97BF3256B45C4BF3EC120B78573298FE11F3DB1CB6CC422ADD692BCE7D283194196BA5776B27CFBABCDDB75850835AFF9CB", 'hex') );
+		const sessionKey = new Uint8Array( Buffer.from("012000001E660000FD514A371E6600003954B2FAE3D50E17391896CEAE29BF9BB99C9DC65890A73BCD7918D3C08B4564073F3C388BF6EB440D285503300906072A850302021F01", 'hex') );
+		
+		const iv = new Uint8Array( Buffer.from("3D2D5829FD863A30", 'hex') );
+		const encryptedBytesArray = new Uint8Array( Buffer.from("F253A7E1", 'hex') );
+
+		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptedBytesArray, 
+			containerName,
+			pkBlob,
+			iv,
+			sessionKey);
+
+		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
+		console.log("decryptedMessage: " + decryptedMessage);
+
+		expect(decryptedMessage).to.equal(sourceMessage);
+	});
+
+	it('Дешифрование сообщения от микросервиса dbg.crypto', async () => {
+		const containerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+		
+		const senderPublicKeyBlob = new Uint8Array( Buffer.from("06200000492e00004d41473100020000301306072a85030202240006082a85030701010202e21e0ca695409ee93470eb4d3386815b1ac451e105cf778feadc53836ab2749650994b6715ebf381bd64a6763d9ccaac8821241f4cb8e17350d56d4eebd5504d", 'hex') );
+		//nodeCryptopro.GetPublicKeyFromCertificateFile("./55298654e-d073-f75e-9368-0847d712bb2.cer");
+//		
+		const pkBlob = new Uint8Array( Buffer.from("", 'hex') );
+		const sessionKey = new Uint8Array( Buffer.from("012000001e660000fd514a371e6600004d9b1b1b6b81b9a7705a97293a4c9c99cb3ace94969fce72760668595674e7429f37f9812a860230b8db2981300b06092a8503070102050101", 'hex') );
+		
+		const iv = new Uint8Array( Buffer.from("b7b37aa3b9606075", 'hex') );
+		const encryptedBytesArray = new Uint8Array( Buffer.from("2583ab35", 'hex') );
+
+		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptedBytesArray, 
+			containerName,
+			senderPublicKeyBlob,
+			iv,
+			sessionKey);
+
+		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
+		console.log("decryptedMessage: " + decryptedMessage);
+
+		expect(decryptedMessage).to.equal("test");
+	});
+
+
+/*	it('Дешифрование сообщения с Платформы', async () => {
+		const containerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";
+		const pkBlob = new Uint8Array([6,32,0,0,73,46,0,0,77,65,71,49,0,2,0,0,48,19,6,7,42,133,3,2,2,36,0,6,8,42,133,3,7,1,1,2,2,144,129,142,86,169,62,26,195,207,130,70,122,105,84,35,108,162,39,114,195,205,130,86,214,24,187,179,50,178,170,134,15,82,165,222,213,0,31,89,235,98,208,30,89,111,242,79,159,234,213,149,143,34,11,145,117,195,31,87,82,221,2,83,139]);
+		const sessionKeyBytes = new Uint8Array([1,32,0,0,30,102,0,0,253,81,74,55,30,102,0,0,108,55,242,240,222,51,1,65,194,217,203,30,166,86,252,69,35,116,246,28,78,216,183,39,55,162,77,155,63,221,97,46,163,170,229,17,18,46,247,221,253,137,227,118,48,11,6,9,42,133,3,7,1,2,5,1,1]);
+		const iv = new Uint8Array([49,188,197,134,61,238,168,89]);
+		const encryptedBytesArray = new Uint8Array([108,131,157,179,80,86,80,196,96,225,216]);
+
+		const senderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile("./2012_Cert.cer");//("./55298654e-d073-f75e-9368-0847d712bb2.cer");
+		console.log("senderPublicKeyBlob (2012_Cert.cer): " + senderPublicKeyBlob);
+
+		const senderPublicKeyBlob2 = nodeCryptopro.GetPublicKeyFromCertificateFile("./55298654e-d073-f75e-9368-0847d712bb2.cer");
+		console.log("senderPublicKeyBlob (55298654e-d073-f75e-9368-0847d712bb2): " + senderPublicKeyBlob2);
+
+		const publicKeyBlobFromContainer = nodeCryptopro.GetPublicKeyFromCertificate("vstroganov@mail.ru");
+		console.log("publicKeyBlobFromContainer ('Tokarev2012_3'): " + publicKeyBlobFromContainer);
+
+		let decryptedBytes = nodeCryptopro.decrypt(
+			encryptedBytesArray, 
+			containerName,
+			senderPublicKeyBlob2,
+			iv,
+			sessionKeyBytes);
+
+		const decryptedMessage = (new Buffer(decryptedBytes)).toString();
+console.log("decryptedMessage: " + decryptedMessage);
+
+		expect(decryptedMessage).to.equal(sourceMessage);
+	});*/
 
 });

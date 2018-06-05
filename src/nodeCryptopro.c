@@ -22,6 +22,20 @@
 HCRYPTPROV hContainerProv = 0; // Дескриптор CSP
 char* keyContainerName = NULL;
 
+ALG_ID ke_alg = CALG_PRO_EXPORT;
+DWORD kpMode = CRYPT_MODE_CFB;
+
+EXPORT CallResult InitParams(const char* sessionKeyExportAlg, const char* mode) {
+
+    if( strcmp(sessionKeyExportAlg, "CALG_PRO12_EXPORT") == 0 )
+        ke_alg = CALG_PRO12_EXPORT;
+
+    if( strcmp(mode, "CRYPT_MODE_CNT") == 0 )
+        kpMode = CRYPT_MODE_CNT;
+
+    return ResultSuccess();
+}
+
 EXPORT CallResult AcquireContextForContainer(
     const char* keyContainer
 ) {
@@ -253,7 +267,6 @@ EXPORT CallResult Encrypt(
     DWORD dwCIPHER = 0;
 
     DWORD bufLen = 0;
-    ALG_ID ke_alg = CALG_PRO12_EXPORT;
 
     // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -275,6 +288,9 @@ EXPORT CallResult Encrypt(
     if(!CryptGenKey(hProv, CALG_G28147, CRYPT_EXPORTABLE, &hSessionKey))
        return HandleError("Error during CryptGenKey");
 
+    if(!CryptSetKeyParam(hSessionKey, KP_MODE, (PBYTE)&kpMode, 0))
+        return HandleError("Error during CryptSetKeyParam");
+
      //--------------------------------------------------------------------
     // Зашифрование сессионного ключа
     //--------------------------------------------------------------------
@@ -292,17 +308,6 @@ EXPORT CallResult Encrypt(
     if(!CryptExportKey(hSessionKey, hAgreeKey, SIMPLEBLOB, 0, pbKeyBlobSimple, &dwBlobLenSimple))
         return HandleError("Error during CryptExportKey");
 
-    if(!CryptGetKeyParam(hAgreeKey, KP_CIPHEROID, NULL, &dwCIPHER, 0))
-       return HandleError("Error computing KP_CIPHEROID length");
-
-    pbCIPHER = (BYTE*)malloc(dwCIPHER);
-    if (!pbCIPHER)
-       return HandleError("Out of memory");
-
-    if(!CryptGetKeyParam(hAgreeKey, KP_CIPHEROID, pbCIPHER, &dwCIPHER, 0))
-       return HandleError("Error computing KP_CIPHEROID length");
-
-printf("KP_CIPHEROID: %s\n", pbCIPHER);
 
     // Определение размера вектора инициализации сессионного ключа
     if(!CryptGetKeyParam(hSessionKey, KP_IV, NULL, &dwIV, 0))
@@ -354,8 +359,6 @@ EXPORT CallResult Decrypt(
     HCRYPTKEY hSessionKey = 0;  // Дескриптор сессионного ключа
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
 
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
-
     CallResult acquireResult;
     
     if( !keyContainerName || (keyContainerName && (strcmp(keyContainerName, responderContainerName) != 0)) ) {
@@ -378,6 +381,9 @@ EXPORT CallResult Decrypt(
         return HandleError("Error during CryptImportKey session key");
 
     if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
+        return HandleError("Error during CryptSetKeyParam");
+
+    if(!CryptSetKeyParam(hSessionKey, KP_MODE, (PBYTE)&kpMode, 0))
         return HandleError("Error during CryptSetKeyParam");
 
     BOOL bFinal = TRUE;
@@ -410,8 +416,7 @@ EXPORT CallResult EncryptWithSessionKey(
     HCRYPTKEY hAgreeKey = 0;        // Дескриптор ключа согласования
 
     DWORD bufLen = 0;
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
-    
+
     CallResult acquireResult;
     
     if( !keyContainerName || (keyContainerName && (strcmp(keyContainerName, senderContainerName) != 0)) ) {
@@ -436,6 +441,10 @@ EXPORT CallResult EncryptWithSessionKey(
    //Расшифровываем сессионный ключ
     if(!CryptImportKey(hContainerProv, sessionKeySimpleBlob, sessionKeySimpleBlobLength, hAgreeKey, 0, &hSessionKey))
         return HandleError("Error during CryptImportKey session key");
+
+    //Установка режима шифрования
+    if(!CryptSetKeyParam(hSessionKey, KP_MODE, (PBYTE)&kpMode, 0))
+        return HandleError("Error during CryptSetKeyParam");
 
     if(!CryptSetKeyParam(hSessionKey, KP_IV, IV, 0))
         return HandleError("Error during CryptSetKeyParam");
@@ -473,7 +482,6 @@ EXPORT CallResult RecodeSessionKey(
     BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
     DWORD dwBlobLenSimple;
 
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
 
     // Получение дескриптора контейнера с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -554,7 +562,6 @@ EXPORT CallResult RecodeSessionKeyForNewContainer(
     BYTE *pbKeyBlobSimple = NULL;   // Указатель на сессионный ключевой BLOB
     DWORD dwBlobLenSimple;
 
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
 
     // Получение дескриптора контейнера с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, oldContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
@@ -642,8 +649,6 @@ EXPORT CallResult GenerateSessionKey(
     BYTE *pbIV = NULL;      // Вектор инициализации сессионного ключа
     DWORD dwIV = 0;
 
-    ALG_ID ke_alg = CALG_PRO_EXPORT;
-
     // Получение дескриптора контейнера получателя с именем senderContainerName, находящегося в рамках провайдера
     if(!CryptAcquireContext(&hProv, senderContainerName, NULL, PROV_GOST_2012_256/*PROV_GOST_2001_DH*/, 0))
        return HandleError("Error during CryptAcquireContext");
@@ -663,6 +668,10 @@ EXPORT CallResult GenerateSessionKey(
     // Генерация сессионного ключа
     if(!CryptGenKey(hProv, CALG_G28147, CRYPT_EXPORTABLE, &hSessionKey))
        return HandleError("Error during CryptGenKey");
+
+    //Установка режима шифрования
+    if(!CryptSetKeyParam(hSessionKey, KP_MODE, (PBYTE)&kpMode, 0))
+        return HandleError("Error during CryptSetKeyParam");
 
      //--------------------------------------------------------------------
     // Зашифрование сессионного ключа

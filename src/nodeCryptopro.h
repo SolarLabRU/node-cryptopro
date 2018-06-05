@@ -32,6 +32,8 @@ EXPORT CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *pu
 
 EXPORT CallResult GetPublicKeyFromCertificate(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateSubjectKey);
 
+EXPORT CallResult GetPublicKeyFromCertificateData(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, BYTE *certificateData, DWORD certificateDataLength);
+
 EXPORT CallResult GenerateSessionKey(
     DWORD* sessionKeyBlobLength, BYTE* sessionKeyBlob, 
     const char* senderContainerName, 

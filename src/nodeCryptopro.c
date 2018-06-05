@@ -759,7 +759,47 @@ EXPORT CallResult CreateHash(BYTE* bytesArrayToHash, DWORD bytesArrayToHashLengt
     return ResultSuccess();
 }
 
-CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName) {
+EXPORT CallResult GetPublicKeyFromCertificateData(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, BYTE *certificateData, DWORD certificateDataLength) {
+
+        PCCERT_CONTEXT pCertContext = NULL;
+        HCRYPTKEY hPublicKey;
+        HCRYPTPROV hProv = 0; // Дескриптор CSP
+
+        BYTE  pbKeyBlob[MAX_PUBLICKEYBLOB_SIZE];
+        DWORD dwKeyBlobLen = MAX_PUBLICKEYBLOB_SIZE;
+
+        if(!CryptAcquireContext(&hProv, NULL, NULL, PROV_GOST_2012_256, /*PROV_GOST_2001_DH,*/CRYPT_VERIFYCONTEXT))
+            return HandleError("CryptAcquireContext failed");
+      
+        pCertContext = CertCreateCertificateContext(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, certificateData, certificateDataLength);
+
+        if (!pCertContext)
+            return HandleError( "CertCreateCertificateContext" );
+
+        // Импортируем открытый ключ
+        if (!CryptImportPublicKeyInfoEx(hProv, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, &(pCertContext->pCertInfo->SubjectPublicKeyInfo), 0, 0, NULL, &hPublicKey)) {
+            CertFreeCertificateContext(pCertContext);
+            return HandleError( "CryptImportPublicKeyInfoEx" );
+        }
+        
+        // Экспортируем его в BLOB
+        if (!CryptExportKey(hPublicKey, 0, PUBLICKEYBLOB, 0, pbKeyBlob, &dwKeyBlobLen)) {
+            CryptDestroyKey(hPublicKey);
+            return HandleError( "CryptExportKey" );
+        }
+
+        memcpy(publicKeyBlob, pbKeyBlob, dwKeyBlobLen);
+        memcpy(publicKeyBlobLength, &dwKeyBlobLen, sizeof(dwKeyBlobLen));
+
+        CertFreeCertificateContext(pCertContext);
+        CryptDestroyKey(hPublicKey);
+        CryptReleaseContext(hProv, 0);
+
+    return ResultSuccess();
+}
+
+
+EXPORT CallResult GetPublicKeyFromCertificateFile(BYTE *publicKeyBlob, DWORD *publicKeyBlobLength, const char *certificateFileName) {
     FILE *certf = NULL;       // Файл, в котором хранится сертификат
 
     if((certf = fopen(certificateFileName, "rb"))) {

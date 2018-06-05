@@ -57,6 +57,15 @@ describe('Тесты', function () {
 		expect(publicKeyBlob).to.have.lengthOf(101);
 	});	
 
+	it('Получение публичного ключа из текста сертификата', async () => {
+		const certificateData = '30820347308202f6a003020102021312002903709eec80f0c6b0e654000000290370300806062a8503020203307f3123302106092a864886f70d0109011614737570706f72744063727970746f70726f2e7275310b3009060355040613025255310f300d060355040713064d6f73636f7731173015060355040a130e43525950544f2d50524f204c4c433121301f0603550403131843525950544f2d50524f20546573742043656e7465722032301e170d3138303532323135333431315a170d3138303832323135343431315a30563121301f06092a864886f70d0109011612767374726f67616e6f76406d61696c2e7275310b30090603550406130252553112301006035504030c096c6f63616c686f73743110300e06035504040c07636f6d70616e793066301f06082a85030701010101301306072a85030202240006082a850307010102020343000440e21e0ca695409ee93470eb4d3386815b1ac451e105cf778feadc53836ab2749650994b6715ebf381bd64a6763d9ccaac8821241f4cb8e17350d56d4eebd5504da382016d3082016930130603551d25040c300a06082b06010505070304300b0603551d0f0404030204f0301d0603551d0e04160414e22c34e1b508a1378b0d0b6da693a6ac2490da81301f0603551d2304183016801415317cb08d1ade66d7159c4952971724b9017a8330590603551d1f04523050304ea04ca04a8648687474703a2f2f7465737463612e63727970746f70726f2e72752f43657274456e726f6c6c2f43525950544f2d50524f2532305465737425323043656e746572253230322e63726c3081a906082b0601050507010104819c308199306106082b060105050730028655687474703a2f2f7465737463612e63727970746f70726f2e72752f43657274456e726f6c6c2f746573742d63612d323031345f43525950544f2d50524f2532305465737425323043656e746572253230322e637274303406082b060105050730018628687474703a2f2f7465737463612e63727970746f70726f2e72752f6f6373702f6f6373702e737266300806062a85030202030341007d420213f28207f2f05c433a1232dcece4b7c4db4ceb88b4b7a90f104d6fe7d59cbe262390573add35e2edc12c16a63d7d15dbd515019600e162a5cd2cbd7be1';
+		const certDataBytes = new Uint8Array( Buffer.from(certificateData, 'hex') );
+
+		publicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateData(certDataBytes);
+
+		expect(publicKeyBlob).to.have.lengthOf(101);
+	});
+
 	it('Загрузка публичного ключа из файла сертификата', async () => {
 		const certificateFilePath = './55298654e-d073-f75e-9368-0847d712bb2.cer';
 
@@ -64,7 +73,7 @@ describe('Тесты', function () {
 
 		expect(publicKeyBlob).to.have.lengthOf(101);
 	});
-
+/*
 	it('Получение дескриптора контейнера', async () => {
 		const result = nodeCryptopro.acquireContextForContainer(senderContainerName);
 		
@@ -128,20 +137,14 @@ describe('Тесты', function () {
 		const isVerified = nodeCryptopro.verifySignature(sourceMessageBytes, signatureForPreparedHash, responderPublicKeyBlob);
 
 		expect(isVerified).to.equal(true);
-	});
-
+	});*/
+/*
 	it('Шифрование сообщения по алгоритму ГОСТ 28147', async () => {
 		const responderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(responderCertFilename);
 		const senderPublicKeyBlob = nodeCryptopro.GetPublicKeyFromCertificateFile(senderCertFilename);
 
 		encryptionResult = nodeCryptopro.encrypt(sourceMessageBytes, senderContainerName, responderPublicKeyBlob, "CALG_PRO_EXPORT");
 
-/*console.log("encryptedBytesArray: " + Buffer.from(encryptionResult.encryptedBytesArray).toString('hex'));
-console.log("sessionKeyBlob: " + Buffer.from(encryptionResult.sessionKeyBlob).toString('hex'));
-console.log("IV: " + Buffer.from(encryptionResult.IV).toString('hex'));
-console.log("sender pk: " + Buffer.from(senderPublicKeyBlob).toString('hex'));
-console.log("responder pk: " + Buffer.from(responderPublicKeyBlob).toString('hex'));
-*/
 		expect(encryptionResult.encryptedBytesArray).to.have.lengthOf(sourceMessageBytes.length);
 		expect(encryptionResult.sessionKeyBlob).to.have.lengthOf(73);
 		expect(encryptionResult.IV).to.have.lengthOf(8);
@@ -306,7 +309,7 @@ console.log("responder pk: " + Buffer.from(responderPublicKeyBlob).toString('hex
 		console.log("decryptedMessage: " + decryptedMessage);
 
 		expect(decryptedMessage).to.equal(sourceMessage);
-	});
+	});*/
 /*
 	it('Дешифрование сообщения от микросервиса dbg.crypto', async () => {
 		const containerName = "5973e5bc6-1e43-6206-c603-21fdd08867e";

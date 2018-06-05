@@ -47,6 +47,7 @@ const cryptoLib = ffi.Library(pathToNodeCryptoproLib, {
 	'VerifySignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
 	'SignPreparedHash': [CallResult, ['string', ref.refType('byte'), 'int', ref.refType('byte'), ref.refType('int')]],
 	'VerifyPreparedHashSignature': [CallResult, [ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('bool')]],
+	'GetPublicKeyFromCertificateData': [CallResult, [ref.refType('byte'), ref.refType('int'), ref.refType('byte'), 'int']],
 	'GetPublicKeyFromCertificateFile': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'GetPublicKeyFromCertificate': [CallResult, [ref.refType('byte'), ref.refType('int'), 'string']],
 	'RecodeSessionKey': [CallResult, [ref.refType('byte'), 'int', 'string', ref.refType('byte'), 'int', ref.refType('byte'), 'int', ref.refType('byte'), 'int']],
@@ -349,6 +350,25 @@ module.exports = (keyExportAlgo = "CALG_PRO_EXPORT", kpMode = "CRYPT_MODE_CFB") 
 				throw new Error(result.errorMessage);
 			} else {
 				return verificationResult.deref();
+			}
+		},
+
+		/**
+		 * Получение публичного ключа из байтов сертификата
+		 *
+		 * @param {String} certificateFilePath Путь к файлу сертификата в формате .cer
+		 * @return {Uint8Array} Массив байтов публичного ключа
+		 */
+		GetPublicKeyFromCertificateData: (certificateBytes) => {
+			let publicKeyBlobLength = ref.alloc('int');
+			let publicKeyBlob = new Uint8Array( MAX_PUBLICKEYBLOB_SIZE );
+
+			let result = cryptoLib.GetPublicKeyFromCertificateData(publicKeyBlob, publicKeyBlobLength, certificateBytes, certificateBytes.length);
+
+			if(result.status) {
+				throw new Error(result.errorMessage);
+			} else {	
+				return publicKeyBlob.subarray(0, publicKeyBlobLength.deref());
 			}
 		},
 

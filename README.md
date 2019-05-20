@@ -25,6 +25,10 @@ npm install node-cryptopro
 
 /opt/cprocsp/bin/amd64/csptest -keyset -newkeyset -cont '\\.\HDIMAGE\containerName' -provtype 75 -provider "Crypto-Pro GOST R 34.10-2012 KC1 CSP"
 
+Для просмотра списка контейнеров используется команда:
+
+/opt/cprocsp/bin/amd64/csptest -keyset -enum_cont -verifycontext -fqcn
+
 2) Создание запроса на получение сертификата:
 
 /opt/cprocsp/bin/amd64/cryptcp -creatrqst -dn "E=requesteremail@mail.ru, C=RU, CN=localhost, SN=company" -nokeygen -both -ku -cont '\\.\HDIMAGE\containerName' containerName.req
